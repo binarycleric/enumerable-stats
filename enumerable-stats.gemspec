@@ -15,5 +15,5 @@ Gem::Specification.new do |s|
   s.files = Dir.glob("lib/**/*", File::FNM_DOTMATCH)
   s.require_paths = %w[lib]
 
-  s.required_ruby_version = ">= 3.3.0"
+  s.required_ruby_version = ">= 3.1.0"
 end
