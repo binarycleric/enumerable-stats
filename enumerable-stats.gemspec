@@ -5,7 +5,10 @@ Gem::Specification.new do |s|
   s.version     = "1.0.0"
   s.licenses    = ["MIT"]
   s.summary     = "Statistical Methods for Enumerable Collections"
-  s.description = "Statistical Methods for Enumerable Collections"
+  s.description = "A Ruby gem that extends all Enumerable objects (Arrays, Ranges, Sets, etc.) with essential statistical methods. " \
+                  "Provides mean, median, variance, and standard deviation calculations, along with robust outlier detection using the IQR method. " \
+                  "Perfect for data analysis, performance monitoring, A/B testing, and cleaning datasets with extreme values. " \
+                  "Zero dependencies and works seamlessly with any Ruby collection that includes Enumerable."
   s.authors     = ["Jon Daniel"]
   s.email       = "binarycleric@gmail.com"
   s.homepage    = "https://github.com/binarycleric/enumerable-stats"

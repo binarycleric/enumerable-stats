@@ -84,6 +84,55 @@ Calculates the sample standard deviation (square root of variance).
 [5, 5, 5, 5].standard_deviation       # => 0.0
 ```
 
+### Comparison Methods
+
+#### `#percentage_difference(other)`
+
+Calculates the absolute percentage difference between this collection's mean and another value or collection's mean using the symmetric percentage difference formula.
+
+```ruby
+# Comparing two datasets
+control_group = [85, 90, 88, 92, 85]    # mean = 88
+test_group = [95, 98, 94, 96, 97]       # mean = 96
+
+diff = control_group.percentage_difference(test_group)
+puts diff  # => 8.7% (always positive)
+
+# Comparing collection to single value
+response_times = [120, 135, 125, 130, 140]  # mean = 130
+target = 120
+
+diff = response_times.percentage_difference(target)
+puts diff  # => 8.0%
+
+# Same result regardless of order
+puts control_group.percentage_difference(test_group)  # => 8.7%
+puts test_group.percentage_difference(control_group)  # => 8.7%
+```
+
+#### `#signed_percentage_difference(other)`
+
+Calculates the signed percentage difference, preserving the direction of change. Positive values indicate this collection's mean is higher than the comparison; negative values indicate it's lower.
+
+```ruby
+# Performance monitoring - lower is better
+baseline = [100, 110, 105, 115, 95]     # mean = 105ms
+optimized = [85, 95, 90, 100, 80]       # mean = 90ms
+
+improvement = optimized.signed_percentage_difference(baseline)
+puts improvement  # => -15.38% (negative = improvement for response times)
+
+regression = baseline.signed_percentage_difference(optimized)
+puts regression   # => 15.38% (positive = regression)
+
+# A/B testing - higher is better
+control_conversions = [0.12, 0.11, 0.13, 0.12]    # mean = 0.12 (12%)
+variant_conversions = [0.14, 0.13, 0.15, 0.14]    # mean = 0.14 (14%)
+
+lift = variant_conversions.signed_percentage_difference(control_conversions)
+puts lift  # => 15.38% (positive = improvement for conversion rates)
+```
+
 ### Outlier Detection
 
 #### `#remove_outliers(multiplier: 1.5)`
@@ -208,9 +257,59 @@ variant_b = [0.18, 0.19, 0.17, 0.20, 0.18, 0.21, 0.19, 0.18]
 puts "Variant A: #{(variant_a.mean * 100).round(1)}% ± #{(variant_a.standard_deviation * 100).round(1)}%"
 puts "Variant B: #{(variant_b.mean * 100).round(1)}% ± #{(variant_b.standard_deviation * 100).round(1)}%"
 
+# Calculate performance lift
+lift = variant_b.signed_percentage_difference(variant_a)
+puts "Variant B lift: #{lift.round(1)}%" # => "Variant B lift: 34.8%"
+
 # Check for outliers that might skew results
 puts "A outliers: #{variant_a.outlier_stats[:outliers_removed]}"
 puts "B outliers: #{variant_b.outlier_stats[:outliers_removed]}"
+```
+
+### Performance Comparison
+
+```ruby
+# Before and after optimization comparison
+before_optimization = [150, 165, 155, 170, 160, 145, 175]  # API response times (ms)
+after_optimization = [120, 125, 115, 130, 118, 122, 128]
+
+puts "Before: #{before_optimization.mean.round(1)}ms ± #{before_optimization.standard_deviation.round(1)}ms"
+puts "After:  #{after_optimization.mean.round(1)}ms ± #{after_optimization.standard_deviation.round(1)}ms"
+
+# Calculate improvement (negative is good for response times)
+improvement = after_optimization.signed_percentage_difference(before_optimization)
+puts "Performance improvement: #{improvement.round(1)}%" # => "Performance improvement: -23.2%"
+
+# Or use absolute difference for reporting
+abs_diff = after_optimization.percentage_difference(before_optimization)
+puts "Total performance change: #{abs_diff.round(1)}%" # => "Total performance change: 23.2%"
+```
+
+### Statistical Significance Testing
+
+```ruby
+# Comparing two datasets for meaningful differences
+dataset_a = [45, 50, 48, 52, 49, 47, 51]
+dataset_b = [48, 53, 50, 55, 52, 49, 54]
+
+# Basic comparison
+difference = dataset_b.signed_percentage_difference(dataset_a)
+puts "Dataset B is #{difference.round(1)}% different from Dataset A"
+
+# Check if difference is large enough to be meaningful
+abs_difference = dataset_b.percentage_difference(dataset_a)
+if abs_difference > 5.0  # 5% threshold
+  puts "Difference of #{abs_difference.round(1)}% may be statistically significant"
+else
+  puts "Difference of #{abs_difference.round(1)}% is likely not significant"
+end
+
+# Consider variability
+a_cv = (dataset_a.standard_deviation / dataset_a.mean) * 100  # Coefficient of variation
+b_cv = (dataset_b.standard_deviation / dataset_b.mean) * 100
+
+puts "Dataset A variability: #{a_cv.round(1)}%"
+puts "Dataset B variability: #{b_cv.round(1)}%"
 ```
 
 ## Method Reference
@@ -221,12 +320,14 @@ puts "B outliers: #{variant_b.outlier_stats[:outliers_removed]}"
 | `median` | Middle value | Numeric or nil | Returns nil for empty collections |
 | `variance` | Sample variance | Float | Uses n-1 denominator (sample variance) |
 | `standard_deviation` | Sample standard deviation | Float | Square root of variance |
+| `percentage_difference(other)` | Absolute percentage difference | Float | Always positive, symmetric comparison |
+| `signed_percentage_difference(other)` | Signed percentage difference | Float | Preserves direction, useful for A/B tests |
 | `remove_outliers(multiplier: 1.5)` | Remove outliers using IQR method | Array | Returns new array, original unchanged |
 | `outlier_stats(multiplier: 1.5)` | Outlier removal statistics | Hash | Useful for monitoring and debugging |
 
 ## Requirements
 
-- Ruby >= 3.3.0
+- Ruby >= 3.1.0
 - No external dependencies
 
 ## Development

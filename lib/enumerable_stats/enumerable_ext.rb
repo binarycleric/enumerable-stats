@@ -2,6 +2,60 @@
 
 module EnumerableStats
   module EnumerableExt
+    # Calculates the percentage difference between this collection's mean and another value or collection's mean
+    # Uses the symmetric percentage difference formula: |a - b| / ((a + b) / 2) * 100
+    # This is useful for comparing datasets or metrics where direction doesn't matter
+    #
+    # @param other [Numeric, Enumerable] Value or collection to compare against
+    # @return [Float] Absolute percentage difference (always positive)
+    def percentage_difference(other)
+      a = mean.to_f
+      b = other.respond_to?(:mean) ? other.mean.to_f : other.to_f
+
+      return 0.0 if a == b
+      return Float::INFINITY if a + b == 0
+
+      ((a - b).abs / ((a + b) / 2.0).abs) * 100
+    end
+
+    # Calculates the signed percentage difference between this collection's mean and another value or collection's mean
+    # Uses the signed percentage difference formula: (a - b) / ((a + b) / 2) * 100
+    # Useful for performance comparisons where direction matters (e.g., improvements vs regressions)
+    #
+    # @param other [Numeric, Enumerable] Value or collection to compare against
+    # @return [Float] Signed percentage difference (positive = this collection is higher, negative = other is higher)
+    def signed_percentage_difference(other)
+      a = mean.to_f
+      b = other.respond_to?(:mean) ? other.mean.to_f : other.to_f
+
+      return 0.0 if a == b
+      return Float::INFINITY if a + b == 0
+
+      ((a - b) / ((a + b) / 2.0).abs) * 100
+    end
+
+    # Calculates the degrees of freedom for comparing two samples using Welch's formula
+    # This is used in statistical hypothesis testing when sample variances are unequal
+    # The formula accounts for different sample sizes and variances between groups
+    #
+    # @param other [Enumerable] Another collection to compare against
+    # @return [Float] Degrees of freedom for statistical testing
+    # @example
+    #   sample_a = [10, 12, 14, 16, 18]
+    #   sample_b = [5, 15, 25, 35, 45, 55]
+    #   df = sample_a.degrees_of_freedom(sample_b)  # => ~7.2
+    def degrees_of_freedom(other)
+      n1 = variance / count
+      n2 = other.variance / other.count
+
+      n = (n1 + n2)**2
+
+      d1 = variance**2 / (count**2 * (count - 1))
+      d2 = other.variance**2 / (other.count**2 * (other.count - 1))
+
+      n / (d1 + d2)
+    end
+
     def mean
       sum / size.to_f
     end
