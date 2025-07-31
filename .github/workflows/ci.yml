@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby-version: ['3.3.0', '3.4.2']
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Ruby ${{ matrix.ruby-version }}
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: ${{ matrix.ruby-version }}
+        bundler-cache: true # runs 'bundle install' and caches installed gems automatically
+
+    - name: Run tests
+      run: bundle exec rspec --format progress
+
+    - name: Build gem
+      run: gem build enumerable-stats.gemspec
+
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.4.2'
+        bundler-cache: true
+
+    - name: Check code formatting (if available)
+      run: |
+        if bundle list | grep -q 'rubocop'; then
+          bundle exec rubocop
+        else
+          echo "Rubocop not configured, skipping lint check"
+        fi
+
+    - name: Run basic Ruby syntax check
+      run: |
+        find lib -name "*.rb" -exec ruby -c {} \;
+        find spec -name "*.rb" -exec ruby -c {} \;
