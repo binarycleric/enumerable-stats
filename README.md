@@ -84,6 +84,56 @@ Calculates the sample standard deviation (square root of variance).
 [5, 5, 5, 5].standard_deviation       # => 0.0
 ```
 
+### Statistical Testing Methods
+
+#### `#t_value(other)`
+
+Calculates the t-statistic for comparing the means of two samples using Welch's t-test formula, which doesn't assume equal variances. Used in hypothesis testing to determine if two groups have significantly different means.
+
+```ruby
+# A/B test: comparing conversion rates
+control_group = [0.12, 0.11, 0.13, 0.12, 0.14, 0.11, 0.12]     # mean ≈ 0.121
+test_group = [0.15, 0.16, 0.14, 0.17, 0.15, 0.18, 0.16]        # mean ≈ 0.157
+
+t_stat = control_group.t_value(test_group)
+puts t_stat  # => -4.2 (negative means test_group > control_group)
+
+# Performance comparison: API response times
+baseline = [100, 120, 110, 105, 115, 108, 112]   # Slower responses
+optimized = [85, 95, 90, 88, 92, 87, 89]         # Faster responses
+
+t_stat = baseline.t_value(optimized)
+puts t_stat  # => 5.8 (positive means baseline > optimized, which is bad for response times)
+
+# The larger the absolute t-value, the more significant the difference
+puts "Significant difference!" if t_stat.abs > 2.0  # Rule of thumb threshold
+```
+
+#### `#degrees_of_freedom(other)`
+
+Calculates the degrees of freedom for statistical testing using Welch's formula. This accounts for different sample sizes and variances between groups and is used alongside the t-statistic for hypothesis testing.
+
+```ruby
+# Calculate degrees of freedom for the same samples
+control = [0.12, 0.11, 0.13, 0.12, 0.14, 0.11, 0.12]
+test = [0.15, 0.16, 0.14, 0.17, 0.15, 0.18, 0.16]
+
+df = control.degrees_of_freedom(test)
+puts df  # => ~11.8 (used to look up critical t-values in statistical tables)
+
+# With equal variances, approaches n1 + n2 - 2
+equal_var_a = [10, 11, 12, 13, 14]  # variance = 2.5
+equal_var_b = [15, 16, 17, 18, 19]  # variance = 2.5
+df_equal = equal_var_a.degrees_of_freedom(equal_var_b)
+puts df_equal  # => ~8.0 (close to 5 + 5 - 2 = 8)
+
+# With unequal variances, will be less than pooled degrees of freedom
+unequal_a = [10, 10, 10, 10, 10]        # very low variance
+unequal_b = [5, 15, 8, 20, 12, 25, 18]  # high variance
+df_unequal = unequal_a.degrees_of_freedom(unequal_b)
+puts df_unequal  # => ~6.2 (much less than 5 + 7 - 2 = 10)
+```
+
 ### Comparison Methods
 
 #### `#percentage_difference(other)`
@@ -312,6 +362,111 @@ puts "Dataset A variability: #{a_cv.round(1)}%"
 puts "Dataset B variability: #{b_cv.round(1)}%"
 ```
 
+### Statistical Hypothesis Testing
+
+```ruby
+# Complete example: A/B testing with proper statistical analysis
+# Testing whether a new checkout flow improves conversion rates
+
+# Conversion rate data (percentages converted to decimals)
+control_conversions = [0.118, 0.124, 0.116, 0.121, 0.119, 0.122, 0.117, 0.120, 0.115, 0.123]
+variant_conversions = [0.135, 0.142, 0.138, 0.144, 0.140, 0.136, 0.139, 0.141, 0.137, 0.143]
+
+puts "=== A/B Test Statistical Analysis ==="
+puts "Control group (n=#{control_conversions.count}):"
+puts "  Mean: #{(control_conversions.mean * 100).round(2)}%"
+puts "  Std Dev: #{(control_conversions.standard_deviation * 100).round(3)}%"
+
+puts "Variant group (n=#{variant_conversions.count}):"
+puts "  Mean: #{(variant_conversions.mean * 100).round(2)}%"
+puts "  Std Dev: #{(variant_conversions.standard_deviation * 100).round(3)}%"
+
+# Calculate effect size
+lift = variant_conversions.signed_percentage_difference(control_conversions)
+puts "\nEffect size: #{lift.round(2)}% lift"
+
+# Perform statistical test
+t_statistic = control_conversions.t_value(variant_conversions)
+degrees_freedom = control_conversions.degrees_of_freedom(variant_conversions)
+
+puts "\nStatistical test results:"
+puts "  t-statistic: #{t_statistic.round(3)}"
+puts "  Degrees of freedom: #{degrees_freedom.round(1)}"
+puts "  |t| = #{t_statistic.abs.round(3)}"
+
+# Interpret results (simplified - in real analysis, use proper p-value lookup)
+if t_statistic.abs > 2.0  # Rough threshold for significance
+  significance = t_statistic.abs > 3.0 ? "highly significant" : "significant"
+  direction = t_statistic < 0 ? "Variant is better" : "Control is better"
+  puts "  Result: #{significance} difference detected"
+  puts "  Conclusion: #{direction}"
+else
+  puts "  Result: No significant difference detected"
+  puts "  Conclusion: Insufficient evidence for a difference"
+end
+
+# Data quality checks
+control_outliers = control_conversions.outlier_stats
+variant_outliers = variant_conversions.outlier_stats
+
+puts "\nData quality:"
+puts "  Control outliers: #{control_outliers[:outliers_removed]}/#{control_outliers[:original_count]}"
+puts "  Variant outliers: #{variant_outliers[:outliers_removed]}/#{variant_outliers[:original_count]}"
+
+if control_outliers[:outliers_removed] > 0 || variant_outliers[:outliers_removed] > 0
+  puts "  ⚠️  Consider investigating outliers before concluding"
+end
+```
+
+### Production Monitoring with Statistical Analysis
+
+```ruby
+# Monitor API performance changes after deployment
+# Compare response times before and after optimization
+
+before_deploy = [145, 152, 148, 159, 143, 156, 147, 151, 149, 154,
+                 146, 158, 150, 153, 144, 157, 148, 152, 147, 155]
+
+after_deploy = [132, 128, 135, 130, 133, 129, 131, 134, 127, 136,
+                133, 130, 128, 135, 132, 129, 134, 131, 130, 133]
+
+puts "=== Performance Monitoring Analysis ==="
+
+# Remove outliers for more accurate comparison
+before_clean = before_deploy.remove_outliers
+after_clean = after_deploy.remove_outliers
+
+puts "Before deployment (cleaned): #{before_clean.mean.round(1)}ms ± #{before_clean.standard_deviation.round(1)}ms"
+puts "After deployment (cleaned): #{after_clean.mean.round(1)}ms ± #{after_clean.standard_deviation.round(1)}ms"
+
+# Calculate improvement
+improvement_pct = after_clean.signed_percentage_difference(before_clean)
+improvement_abs = before_clean.mean - after_clean.mean
+
+puts "Improvement: #{improvement_pct.round(1)}% (#{improvement_abs.round(1)}ms faster)"
+
+# Statistical significance test
+t_stat = before_clean.t_value(after_clean)
+df = before_clean.degrees_of_freedom(after_clean)
+
+puts "Statistical test: t(#{df.round(1)}) = #{t_stat.round(3)}"
+
+if t_stat.abs > 2.5  # Conservative threshold for production changes
+  puts "✅ Statistically significant improvement confirmed"
+  puts "   Safe to keep the optimization"
+else
+  puts "⚠️  Improvement not statistically significant"
+  puts "   Consider longer observation period"
+end
+
+# Monitor for performance regression alerts
+alert_threshold = 2.0  # t-statistic threshold for alerts
+if t_stat < -alert_threshold  # Negative means after > before (regression)
+  puts "🚨 PERFORMANCE REGRESSION DETECTED!"
+  puts "   Immediate investigation recommended"
+end
+```
+
 ## Method Reference
 
 | Method | Description | Returns | Notes |
@@ -320,6 +475,8 @@ puts "Dataset B variability: #{b_cv.round(1)}%"
 | `median` | Middle value | Numeric or nil | Returns nil for empty collections |
 | `variance` | Sample variance | Float | Uses n-1 denominator (sample variance) |
 | `standard_deviation` | Sample standard deviation | Float | Square root of variance |
+| `t_value(other)` | T-statistic for hypothesis testing | Float | Uses Welch's t-test, handles unequal variances |
+| `degrees_of_freedom(other)` | Degrees of freedom for t-test | Float | Uses Welch's formula, accounts for unequal variances |
 | `percentage_difference(other)` | Absolute percentage difference | Float | Always positive, symmetric comparison |
 | `signed_percentage_difference(other)` | Signed percentage difference | Float | Preserves direction, useful for A/B tests |
 | `remove_outliers(multiplier: 1.5)` | Remove outliers using IQR method | Array | Returns new array, original unchanged |

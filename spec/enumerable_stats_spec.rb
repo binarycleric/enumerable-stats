@@ -319,6 +319,146 @@ RSpec.describe 'Enumerable with EnumerableStats' do
     end
   end
 
+  describe '#t_value' do
+    it 'calculates t-statistic for two samples with different means' do
+      control = [10, 12, 11, 13, 12]     # mean = 11.6, std = 1.14
+      treatment = [15, 17, 16, 18, 14]   # mean = 16.0, std = 1.58
+
+      t_stat = control.t_value(treatment)
+      expect(t_stat).to be < 0  # Control mean < treatment mean, so negative t-stat
+      expect(t_stat.abs).to be > 3  # Should be significant difference
+
+      # Reverse should give opposite sign
+      reverse_t_stat = treatment.t_value(control)
+      expect(reverse_t_stat).to be > 0
+      expect(reverse_t_stat).to be_within(0.01).of(-t_stat)
+    end
+
+    it 'calculates t-statistic for samples with similar means' do
+      sample_a = [10, 11, 12, 13, 14]
+      sample_b = [11, 12, 13, 14, 15]  # Mean shifted by 1
+
+      t_stat = sample_a.t_value(sample_b)
+      expect(t_stat.abs).to be < 3  # Should be smaller difference
+    end
+
+    it 'returns zero when comparing identical samples' do
+      sample = [10, 12, 14, 16, 18]
+      identical = [10, 12, 14, 16, 18]
+
+      t_stat = sample.t_value(identical)
+      expect(t_stat).to eq(0.0)
+    end
+
+    it 'handles samples with different variances correctly' do
+      low_variance = [10, 10.1, 10.2, 10.1, 10]      # Very consistent
+      high_variance = [5, 15, 8, 12, 20]             # Very variable, similar mean
+
+      t_stat = low_variance.t_value(high_variance)
+      expect(t_stat).to respond_to(:abs)  # Should be a valid number
+      expect(t_stat).not_to be_nan
+      expect(t_stat).not_to be_infinite
+    end
+
+    it 'handles edge case with zero standard deviation' do
+      constant = [5, 5, 5, 5, 5]     # Zero standard deviation
+      variable = [4, 5, 6, 5, 5]     # Some variation
+
+      # This should still work (denominator won't be zero due to variable sample)
+      t_stat = constant.t_value(variable)
+      expect(t_stat).to respond_to(:abs)
+      expect(t_stat).not_to be_nan
+    end
+
+    it 'produces expected values for known statistical examples' do
+      # Classical example: comparing two groups
+      group_a = [2.1, 1.9, 2.0, 2.2, 1.8, 2.0, 2.1]  # mean ≈ 2.01
+      group_b = [2.8, 2.9, 2.7, 3.0, 2.6, 2.8, 2.9]  # mean ≈ 2.81
+
+      t_stat = group_a.t_value(group_b)
+      expect(t_stat).to be < -5  # Should be strongly negative (group_a < group_b)
+      expect(t_stat.abs).to be > 5  # Should indicate significant difference
+    end
+
+    it 'works with floating point precision' do
+      precise_a = [1.001, 1.002, 1.003, 1.004, 1.005]
+      precise_b = [1.006, 1.007, 1.008, 1.009, 1.010]
+
+      t_stat = precise_a.t_value(precise_b)
+      expect(t_stat).to be < 0
+      expect(t_stat.abs).to be > 1  # Even small differences should be detectable
+    end
+  end
+
+  describe '#degrees_of_freedom' do
+    it 'calculates degrees of freedom using Welch formula' do
+      sample_a = [10, 12, 14, 16, 18]    # n=5, variance ≈ 10
+      sample_b = [5, 15, 25, 35, 45, 55] # n=6, much higher variance
+
+      df = sample_a.degrees_of_freedom(sample_b)
+      expect(df).to be > 0
+      expect(df).to be < (sample_a.count + sample_b.count - 2)  # Should be less than pooled DF
+    end
+
+    it 'approaches pooled degrees of freedom when variances are equal' do
+      # Create samples with similar variances
+      sample_a = [10, 11, 12, 13, 14]  # n=5, variance = 2.5
+      sample_b = [15, 16, 17, 18, 19]  # n=5, variance = 2.5
+
+      df = sample_a.degrees_of_freedom(sample_b)
+      pooled_df = sample_a.count + sample_b.count - 2  # = 8
+
+      # Should be close to pooled DF when variances are equal
+      expect(df).to be_within(1.0).of(pooled_df)
+    end
+
+    it 'handles samples with very different variances' do
+      uniform = [10, 10, 10, 10, 10]      # Almost no variance
+      variable = [1, 5, 10, 15, 25, 30]   # High variance
+
+      df = uniform.degrees_of_freedom(variable)
+      expect(df).to be > 0
+      expect(df).to be < 10  # Should be much less than pooled DF due to unequal variances
+    end
+
+    it 'returns symmetric result regardless of order' do
+      sample_a = [1, 3, 5, 7, 9]
+      sample_b = [2, 4, 6, 8, 10, 12, 14]
+
+      df_a_b = sample_a.degrees_of_freedom(sample_b)
+      df_b_a = sample_b.degrees_of_freedom(sample_a)
+
+      expect(df_a_b).to be_within(0.001).of(df_b_a)
+    end
+
+    it 'handles edge case with minimum sample sizes' do
+      small_a = [1, 2]    # n=2 (minimum for variance calculation)
+      small_b = [3, 4, 5] # n=3
+
+      df = small_a.degrees_of_freedom(small_b)
+      expect(df).to be > 0
+      expect(df).to be < 3  # Less than pooled DF
+    end
+
+    it 'produces expected values for textbook examples' do
+      # Example from statistics textbook: comparing two teaching methods
+      method_a = [85, 87, 83, 89, 86, 84, 88]  # n=7, more consistent
+      method_b = [82, 91, 88, 85, 94, 87]      # n=6, more variable
+
+      df = method_a.degrees_of_freedom(method_b)
+      expect(df).to be_between(6, 11)  # Expected range for this type of comparison
+      expect(df).to be < (method_a.count + method_b.count - 2)  # Should be less than pooled DF (11)
+    end
+
+    it 'handles identical samples' do
+      sample = [1, 2, 3, 4, 5]
+      identical = [1, 2, 3, 4, 5]
+
+      df = sample.degrees_of_freedom(identical)
+      expect(df).to be_within(0.1).of(8.0)  # Should approach n1 + n2 - 2
+    end
+  end
+
   describe '#signed_percentage_difference' do
     it 'calculates signed percentage difference between two collections' do
       a = [10, 20, 30]  # mean = 20
