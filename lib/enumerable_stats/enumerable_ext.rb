@@ -3,16 +3,16 @@
 module EnumerableStats
   module EnumerableExt
     def mean
-      sum / length.to_f
+      sum / size.to_f
     end
 
     def median
-      return nil if empty?
+      return nil if size == 0
 
       sorted = sort
-      midpoint = length / 2
+      midpoint = size / 2
 
-      if length.even?
+      if size.even?
         sorted[midpoint - 1, 2].sum / 2.0
       else
         sorted[midpoint]
@@ -36,10 +36,10 @@ module EnumerableStats
     # @param multiplier [Float] IQR multiplier (1.5 is standard, 2.0 is more conservative)
     # @return [Array] Array with outliers removed
     def remove_outliers(multiplier: 1.5)
-      return self if length < 4 # Need minimum data points for quartiles
+      return self if size < 4 # Need minimum data points for quartiles
 
       sorted = sort
-      n = length
+      n = size
 
       # Use the standard quartile calculation with interpolation
       # Q1 position = (n-1) * 0.25
@@ -79,14 +79,14 @@ module EnumerableStats
 
     # Returns statistics about outlier removal for debugging/logging
     def outlier_stats(multiplier: 1.5)
-      original_count = length
+      original_count = size
       filtered = remove_outliers(multiplier: multiplier)
 
       {
         original_count: original_count,
-        filtered_count: filtered.length,
-        outliers_removed: original_count - filtered.length,
-        outlier_percentage: ((original_count - filtered.length).to_f / original_count * 100).round(2)
+        filtered_count: filtered.size,
+        outliers_removed: original_count - filtered.size,
+        outlier_percentage: ((original_count - filtered.size).to_f / original_count * 100).round(2)
       }
     end
   end
