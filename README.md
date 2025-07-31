@@ -1,7 +1,7 @@
 # Enumerable Stats
 
 [![CI](https://github.com/binarycleric/enumerable-stats/actions/workflows/ci.yml/badge.svg)](https://github.com/binarycleric/enumerable-stats/actions/workflows/ci.yml)
-[![Ruby](https://img.shields.io/badge/ruby-%3E%3D%203.3.0-ruby.svg)](https://www.ruby-lang.org/)
+[![Ruby](https://img.shields.io/badge/ruby-%3E%3D%203.1.0-ruby.svg)](https://www.ruby-lang.org/)
 [![Gem Version](https://badge.fury.io/rb/enumerable-stats.svg)](https://badge.fury.io/rb/enumerable-stats)
 
 A Ruby gem that extends Enumerable with statistical methods, making it easy to
