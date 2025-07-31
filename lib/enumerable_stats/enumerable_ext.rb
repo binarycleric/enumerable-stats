@@ -34,6 +34,26 @@ module EnumerableStats
       ((a - b) / ((a + b) / 2.0).abs) * 100
     end
 
+    # Calculates the t-statistic for comparing the means of two samples
+    # Uses Welch's t-test formula which doesn't assume equal variances
+    # A larger absolute t-value indicates a greater difference between sample means
+    #
+    # @param other [Enumerable] Another collection to compare against
+    # @return [Float] The t-statistic value (can be positive or negative)
+    # @example
+    #   control = [10, 12, 11, 13, 12]
+    #   treatment = [15, 17, 16, 18, 14]
+    #   t_stat = control.t_value(treatment)  # => ~-4.2 (negative means treatment > control)
+    def t_value(other)
+      signal = (mean - other.mean)
+      noise = Math.sqrt(
+        ((standard_deviation**2) / count) +
+          ((other.standard_deviation**2) / other.count)
+      )
+
+      (signal / noise)
+    end
+
     # Calculates the degrees of freedom for comparing two samples using Welch's formula
     # This is used in statistical hypothesis testing when sample variances are unequal
     # The formula accounts for different sample sizes and variances between groups
@@ -56,10 +76,25 @@ module EnumerableStats
       n / (d1 + d2)
     end
 
+    # Calculates the arithmetic mean (average) of the collection
+    #
+    # @return [Float] The arithmetic mean of all numeric values
+    # @example
+    #   [1, 2, 3, 4, 5].mean  # => 3.0
+    #   (1..10).mean          # => 5.5
     def mean
       sum / size.to_f
     end
 
+    # Calculates the median (middle value) of the collection
+    # For collections with an even number of elements, returns the average of the two middle values
+    #
+    # @return [Numeric, nil] The median value, or nil if the collection is empty
+    # @example
+    #   [1, 2, 3, 4, 5].median        # => 3
+    #   [1, 2, 3, 4].median           # => 2.5
+    #   [5, 1, 3, 2, 4].median        # => 3 (automatically sorts)
+    #   [].median                     # => nil
     def median
       return nil if size == 0
 
@@ -73,12 +108,26 @@ module EnumerableStats
       end
     end
 
+    # Calculates the sample variance of the collection
+    # Uses the unbiased formula with n-1 degrees of freedom (Bessel's correction)
+    #
+    # @return [Float] The sample variance
+    # @example
+    #   [1, 2, 3, 4, 5].variance      # => 2.5
+    #   [5, 5, 5, 5].variance         # => 0.0 (no variation)
     def variance
       mean = self.mean
       sum_of_squares = map { |r| (r - mean)**2 }.sum
       sum_of_squares / (count - 1).to_f
     end
 
+    # Calculates the sample standard deviation of the collection
+    # Returns the square root of the sample variance
+    #
+    # @return [Float] The sample standard deviation
+    # @example
+    #   [1, 2, 3, 4, 5].standard_deviation    # => 1.58
+    #   [5, 5, 5, 5].standard_deviation       # => 0.0
     def standard_deviation
       Math.sqrt variance
     end
@@ -132,6 +181,14 @@ module EnumerableStats
     end
 
     # Returns statistics about outlier removal for debugging/logging
+    # Provides detailed information about how many outliers were removed and their percentage
+    #
+    # @param multiplier [Float] IQR multiplier for outlier detection (1.5 is standard, 2.0 is more conservative)
+    # @return [Hash] Statistics hash containing :original_count, :filtered_count, :outliers_removed, :outlier_percentage
+    # @example
+    #   data = [1, 2, 3, 4, 5, 100]
+    #   stats = data.outlier_stats
+    #   # => {original_count: 6, filtered_count: 5, outliers_removed: 1, outlier_percentage: 16.67}
     def outlier_stats(multiplier: 1.5)
       original_count = size
       filtered = remove_outliers(multiplier: multiplier)
