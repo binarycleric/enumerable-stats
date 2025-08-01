@@ -1,6 +1,34 @@
 # frozen_string_literal: true
 
 module EnumerableStats
+  # Extension module that adds statistical methods to all Enumerable objects.
+  #
+  # This module provides essential statistical functions including measures of central tendency
+  # (mean, median), measures of dispersion (variance, standard deviation), percentile calculations,
+  # outlier detection using the IQR method, and statistical comparison methods.
+  #
+  # When included, these methods become available on all Ruby collections that include
+  # Enumerable (Arrays, Ranges, Sets, etc.), enabling seamless statistical analysis
+  # without external dependencies.
+  #
+  # @example Basic statistical calculations
+  #   [1, 2, 3, 4, 5].mean          #=> 3.0
+  #   [1, 2, 3, 4, 5].median        #=> 3
+  #   [1, 2, 3, 4, 5].percentile(75) #=> 4.0
+  #
+  # @example Outlier detection
+  #   data = [1, 2, 3, 4, 100]
+  #   data.remove_outliers           #=> [1, 2, 3, 4]
+  #   data.outlier_stats             #=> { outliers_removed: 1, percentage: 20.0, ... }
+  #
+  # @example Statistical testing
+  #   control = [10, 12, 14, 16, 18]
+  #   treatment = [15, 17, 19, 21, 23]
+  #   control.t_value(treatment)     #=> negative t-statistic
+  #   control.degrees_of_freedom(treatment) #=> degrees of freedom for Welch's t-test
+  #
+  # @see Enumerable
+  # @since 0.1.0
   module EnumerableExt
     # Calculates the percentage difference between this collection's mean and another value or collection's mean
     # Uses the symmetric percentage difference formula: |a - b| / ((a + b) / 2) * 100
@@ -13,7 +41,7 @@ module EnumerableStats
       b = other.respond_to?(:mean) ? other.mean.to_f : other.to_f
 
       return 0.0 if a == b
-      return Float::INFINITY if a + b == 0
+      return Float::INFINITY if (a + b).zero?
 
       ((a - b).abs / ((a + b) / 2.0).abs) * 100
     end
@@ -29,7 +57,7 @@ module EnumerableStats
       b = other.respond_to?(:mean) ? other.mean.to_f : other.to_f
 
       return 0.0 if a == b
-      return Float::INFINITY if a + b == 0
+      return Float::INFINITY if (a + b).zero?
 
       ((a - b) / ((a + b) / 2.0).abs) * 100
     end
@@ -70,8 +98,8 @@ module EnumerableStats
 
       n = (n1 + n2)**2
 
-      d1 = variance**2 / (count**2 * (count - 1))
-      d2 = other.variance**2 / (other.count**2 * (other.count - 1))
+      d1 = (variance**2) / ((count**2) * (count - 1))
+      d2 = (other.variance**2) / ((other.count**2) * (other.count - 1))
 
       n / (d1 + d2)
     end
@@ -96,7 +124,7 @@ module EnumerableStats
     #   [5, 1, 3, 2, 4].median        # => 3 (automatically sorts)
     #   [].median                     # => nil
     def median
-      return nil if size == 0
+      return nil if size.zero?
 
       sorted = sort
       midpoint = size / 2
@@ -123,7 +151,7 @@ module EnumerableStats
     #   [1, 2, 3, 4, 5].percentile(100)   # => 5 (maximum value)
     #   [].percentile(50)                 # => nil (empty collection)
     def percentile(percentile)
-      return nil if size == 0
+      return nil if size.zero?
 
       unless percentile.is_a?(Numeric) && percentile >= 0 && percentile <= 100
         raise ArgumentError, "Percentile must be a number between 0 and 100, got #{percentile}"
@@ -132,7 +160,7 @@ module EnumerableStats
       sorted = sort
 
       # Handle edge cases
-      return sorted.first if percentile == 0
+      return sorted.first if percentile.zero?
       return sorted.last if percentile == 100
 
       # Calculate the position using the "linear" method (R-7/Excel method)
@@ -151,7 +179,7 @@ module EnumerableStats
         lower_value = sorted[lower_index]
         upper_value = sorted[upper_index]
 
-        lower_value + weight * (upper_value - lower_value)
+        lower_value + (weight * (upper_value - lower_value))
       end
     end
 
@@ -164,7 +192,7 @@ module EnumerableStats
     #   [5, 5, 5, 5].variance         # => 0.0 (no variation)
     def variance
       mean = self.mean
-      sum_of_squares = map { |r| (r - mean)**2 }.sum
+      sum_of_squares = sum { |r| (r - mean)**2 }
       sum_of_squares / (count - 1).to_f
     end
 
@@ -204,7 +232,7 @@ module EnumerableStats
         lower_index = q1_pos.floor
         upper_index = q1_pos.ceil
         weight = q1_pos - q1_pos.floor
-        q1 = sorted[lower_index] + weight * (sorted[upper_index] - sorted[lower_index])
+        q1 = sorted[lower_index] + (weight * (sorted[upper_index] - sorted[lower_index]))
       end
 
       # Calculate Q3
@@ -214,7 +242,7 @@ module EnumerableStats
         lower_index = q3_pos.floor
         upper_index = q3_pos.ceil
         weight = q3_pos - q3_pos.floor
-        q3 = sorted[lower_index] + weight * (sorted[upper_index] - sorted[lower_index])
+        q3 = sorted[lower_index] + (weight * (sorted[upper_index] - sorted[lower_index]))
       end
 
       iqr = q3 - q1
@@ -224,7 +252,7 @@ module EnumerableStats
       upper_bound = q3 + (multiplier * iqr)
 
       # Filter out outliers
-      select { |value| value >= lower_bound && value <= upper_bound }
+      select { |value| value.between?(lower_bound, upper_bound) }
     end
 
     # Returns statistics about outlier removal for debugging/logging

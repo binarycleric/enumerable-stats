@@ -16,8 +16,7 @@ Gem::Specification.new do |s|
   s.homepage    = "https://github.com/binarycleric/enumerable-stats"
   s.metadata    = { "source_code_uri" => "https://github.com/binarycleric/enumerable-stats",
                     "github_repo" => "ssh://github.com/binarycleric/enumerable-stats",
-                    "rubygems_mfa_required" => "true",
-                  }
+                    "rubygems_mfa_required" => "true" }
 
   s.files = Dir.glob("lib/**/*", File::FNM_DOTMATCH)
   s.require_paths = %w[lib]

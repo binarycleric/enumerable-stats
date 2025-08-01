@@ -42,13 +42,9 @@ jobs:
         ruby-version: '3.4.2'
         bundler-cache: true
 
-    - name: Check code formatting (if available)
+    - name: Check code formatting
       run: |
-        if bundle list | grep -q 'rubocop'; then
-          bundle exec rubocop
-        else
-          echo "Rubocop not configured, skipping lint check"
-        fi
+        bundle exec rubocop
 
     - name: Run basic Ruby syntax check
       run: |
