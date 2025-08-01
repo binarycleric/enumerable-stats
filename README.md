@@ -66,6 +66,37 @@ Calculates the median (middle value) of the collection.
 [].median                     # => nil (empty collection)
 ```
 
+#### `#percentile(percentile)`
+
+Calculates the specified percentile of the collection using linear interpolation. This is equivalent to the "linear" method used by many statistical software packages (R-7/Excel method).
+
+```ruby
+# Basic percentile calculations
+data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+data.percentile(0)     # => 1 (minimum value)
+data.percentile(25)    # => 3.25 (first quartile)
+data.percentile(50)    # => 5.5 (median)
+data.percentile(75)    # => 7.75 (third quartile)
+data.percentile(100)   # => 10 (maximum value)
+
+# Performance monitoring percentiles
+response_times = [45, 52, 48, 51, 49, 47, 53, 46, 50, 54]
+
+p50 = response_times.percentile(50)   # => 49.5ms (median response time)
+p95 = response_times.percentile(95)   # => 53.8ms (95th percentile - outlier threshold)
+p99 = response_times.percentile(99)   # => 53.96ms (99th percentile - extreme outliers)
+
+puts "50% of requests complete within #{p50}ms"
+puts "95% of requests complete within #{p95}ms"
+puts "99% of requests complete within #{p99}ms"
+
+# Works with any numeric data
+scores = [78, 85, 92, 88, 76, 94, 82, 89, 91, 87]
+puts "Top 10% threshold: #{scores.percentile(90)}"  # => 92.4
+puts "Bottom 25% cutoff: #{scores.percentile(25)}"  # => 80.5
+```
+
 #### `#variance`
 
 Calculates the sample variance of the collection.
@@ -274,6 +305,24 @@ clean_times = response_times.remove_outliers
 puts "Clean mean: #{clean_times.mean.round(2)}ms"
 # => "Clean mean: 133.22ms" (more representative)
 
+# Use percentiles for SLA monitoring (industry standard approach)
+p50 = clean_times.percentile(50)  # Median response time
+p95 = clean_times.percentile(95)  # 95% of requests complete within this time
+p99 = clean_times.percentile(99)  # 99% of requests complete within this time
+
+puts "Response Time SLAs:"
+puts "  p50 (median): #{p50.round(1)}ms"
+puts "  p95: #{p95.round(1)}ms"
+puts "  p99: #{p99.round(1)}ms"
+
+# Set alerting thresholds based on percentiles
+sla_p95_threshold = 200  # ms
+if p95 > sla_p95_threshold
+  puts "🚨 SLA BREACH: 95th percentile (#{p95.round(1)}ms) exceeds #{sla_p95_threshold}ms"
+else
+  puts "✅ SLA OK: 95th percentile within acceptable limits"
+end
+
 # Get outlier statistics for monitoring
 stats = response_times.outlier_stats
 puts "Removed #{stats[:outliers_removed]} outliers (#{stats[:outlier_percentage]}%)"
@@ -473,6 +522,7 @@ end
 |--------|-------------|---------|-------|
 | `mean` | Arithmetic mean | Float | Works with any numeric collection |
 | `median` | Middle value | Numeric or nil | Returns nil for empty collections |
+| `percentile(percentile)` | Value at specified percentile (0-100) | Numeric or nil | Uses linear interpolation, R-7/Excel method |
 | `variance` | Sample variance | Float | Uses n-1 denominator (sample variance) |
 | `standard_deviation` | Sample standard deviation | Float | Square root of variance |
 | `t_value(other)` | T-statistic for hypothesis testing | Float | Uses Welch's t-test, handles unequal variances |

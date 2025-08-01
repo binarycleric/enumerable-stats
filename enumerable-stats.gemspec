@@ -2,7 +2,7 @@
 
 Gem::Specification.new do |s|
   s.name        = "enumerable-stats"
-  s.version     = "1.0.0"
+  s.version     = "1.1.0"
   s.licenses    = ["MIT"]
   s.summary     = "Statistical Methods for Enumerable Collections"
   s.description = <<~DESC

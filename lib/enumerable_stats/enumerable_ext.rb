@@ -108,6 +108,53 @@ module EnumerableStats
       end
     end
 
+    # Calculates the specified percentile of the collection
+    # Uses linear interpolation between data points when the exact percentile falls between values
+    # This is equivalent to the "linear" method used by many statistical software packages
+    #
+    # @param percentile [Numeric] The percentile to calculate (0-100)
+    # @return [Numeric, nil] The value at the specified percentile, or nil if the collection is empty
+    # @raise [ArgumentError] If percentile is not between 0 and 100
+    # @example
+    #   [1, 2, 3, 4, 5].percentile(50)    # => 3 (same as median)
+    #   [1, 2, 3, 4, 5].percentile(25)    # => 2.0 (25th percentile)
+    #   [1, 2, 3, 4, 5].percentile(75)    # => 4.0 (75th percentile)
+    #   [1, 2, 3, 4, 5].percentile(0)     # => 1 (minimum value)
+    #   [1, 2, 3, 4, 5].percentile(100)   # => 5 (maximum value)
+    #   [].percentile(50)                 # => nil (empty collection)
+    def percentile(percentile)
+      return nil if size == 0
+
+      unless percentile.is_a?(Numeric) && percentile >= 0 && percentile <= 100
+        raise ArgumentError, "Percentile must be a number between 0 and 100, got #{percentile}"
+      end
+
+      sorted = sort
+
+      # Handle edge cases
+      return sorted.first if percentile == 0
+      return sorted.last if percentile == 100
+
+      # Calculate the position using the "linear" method (R-7/Excel method)
+      # This is the most commonly used method in statistical software
+      position = (size - 1) * (percentile / 100.0)
+
+      # If position is an integer, return that exact element
+      if position == position.floor
+        sorted[position.to_i]
+      else
+        # Linear interpolation between the two surrounding values
+        lower_index = position.floor
+        upper_index = position.ceil
+        weight = position - position.floor
+
+        lower_value = sorted[lower_index]
+        upper_value = sorted[upper_index]
+
+        lower_value + weight * (upper_value - lower_value)
+      end
+    end
+
     # Calculates the sample variance of the collection
     # Uses the unbiased formula with n-1 degrees of freedom (Bessel's correction)
     #

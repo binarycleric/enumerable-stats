@@ -63,6 +63,170 @@ RSpec.describe 'Enumerable with EnumerableStats' do
     end
   end
 
+  describe '#percentile' do
+    it 'calculates basic percentiles correctly' do
+      data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+      expect(data.percentile(0)).to eq(1)     # Minimum
+      expect(data.percentile(100)).to eq(10)  # Maximum
+      expect(data.percentile(50)).to eq(5.5)  # Median
+    end
+
+    it 'calculates percentiles with documented examples' do
+      data = [1, 2, 3, 4, 5]
+
+      expect(data.percentile(50)).to eq(3)    # Same as median
+      expect(data.percentile(25)).to eq(2.0)  # 25th percentile
+      expect(data.percentile(75)).to eq(4.0)  # 75th percentile
+      expect(data.percentile(0)).to eq(1)     # Minimum
+      expect(data.percentile(100)).to eq(5)   # Maximum
+    end
+
+    it 'handles linear interpolation correctly' do
+      data = [10, 20, 30, 40, 50]
+
+      # 25th percentile should be between 20 and 30
+      result = data.percentile(25)
+      expect(result).to eq(20.0)
+
+      # 37.5th percentile should interpolate
+      result = data.percentile(37.5)
+      expect(result).to eq(25.0)  # Halfway between 20 and 30
+
+      # 62.5th percentile should interpolate
+      result = data.percentile(62.5)
+      expect(result).to eq(35.0)  # Halfway between 30 and 40
+    end
+
+    it 'works with unsorted data' do
+      unsorted = [5, 1, 4, 2, 3]
+      sorted = [1, 2, 3, 4, 5]
+
+      expect(unsorted.percentile(50)).to eq(sorted.percentile(50))
+      expect(unsorted.percentile(25)).to eq(sorted.percentile(25))
+      expect(unsorted.percentile(75)).to eq(sorted.percentile(75))
+    end
+
+    it 'handles edge cases with small datasets' do
+      # Single element
+      expect([42].percentile(50)).to eq(42)
+      expect([42].percentile(0)).to eq(42)
+      expect([42].percentile(100)).to eq(42)
+
+      # Two elements
+      expect([10, 20].percentile(50)).to eq(15.0)  # Average of the two
+      expect([10, 20].percentile(25)).to eq(12.5)
+      expect([10, 20].percentile(75)).to eq(17.5)
+    end
+
+    it 'returns nil for empty collections' do
+      expect([].percentile(50)).to be_nil
+      expect([].percentile(0)).to be_nil
+      expect([].percentile(100)).to be_nil
+    end
+
+    it 'validates percentile parameter' do
+      data = [1, 2, 3, 4, 5]
+
+      # Valid percentiles should work
+      expect { data.percentile(0) }.not_to raise_error
+      expect { data.percentile(50) }.not_to raise_error
+      expect { data.percentile(100) }.not_to raise_error
+      expect { data.percentile(25.5) }.not_to raise_error
+
+      # Invalid percentiles should raise ArgumentError
+      expect { data.percentile(-1) }.to raise_error(ArgumentError, /must be a number between 0 and 100/)
+      expect { data.percentile(101) }.to raise_error(ArgumentError, /must be a number between 0 and 100/)
+      expect { data.percentile("50") }.to raise_error(ArgumentError, /must be a number between 0 and 100/)
+      expect { data.percentile(nil) }.to raise_error(ArgumentError, /must be a number between 0 and 100/)
+    end
+
+    it 'handles floating point percentiles' do
+      data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+      # Test decimal percentiles
+      result = data.percentile(33.333)
+      expect(result).to be_a(Numeric)
+      expect(result).to be_within(0.01).of(3.99997)  # More precise expectation
+
+      result = data.percentile(66.667)
+      expect(result).to be_a(Numeric)
+      expect(result).to be_within(0.01).of(7.00003)  # Handle floating point precision
+    end
+
+    it 'works with duplicate values' do
+      data = [1, 2, 2, 2, 3, 4, 5]
+
+      # Should handle duplicates correctly
+      expect(data.percentile(50)).to eq(2)  # Median falls on duplicate value
+      expect(data.percentile(25)).to eq(2.0)
+      expect(data.percentile(75)).to be >= 3
+    end
+
+    it 'matches median calculation at 50th percentile' do
+      # Test various datasets to ensure percentile(50) equals median
+      test_datasets = [
+        [1, 2, 3, 4, 5],
+        [1, 2, 3, 4, 5, 6],
+        [10, 20, 30, 40, 50, 60, 70],
+        [1.5, 2.5, 3.5, 4.5],
+        [-5, -1, 0, 1, 5]
+      ]
+
+      test_datasets.each do |dataset|
+        expect(dataset.percentile(50)).to eq(dataset.median)
+      end
+    end
+
+    it 'calculates quartiles correctly' do
+      # Standard statistical example
+      data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+
+      q1 = data.percentile(25)   # First quartile
+      q2 = data.percentile(50)   # Second quartile (median)
+      q3 = data.percentile(75)   # Third quartile
+
+      expect(q1).to be < q2
+      expect(q2).to be < q3
+      expect(q1).to be_between(3, 4)
+      expect(q2).to eq(6.5)  # Median of 12 elements
+      expect(q3).to be_between(9, 10)
+    end
+
+    it 'handles performance data scenarios' do
+      # API response times example
+      response_times = [45, 52, 48, 51, 49, 47, 53, 46, 50, 54, 55, 44, 56, 43, 57]
+
+      p95 = response_times.percentile(95)
+      p99 = response_times.percentile(99)
+      p50 = response_times.percentile(50)
+
+      expect(p95).to be > p50
+      expect(p99).to be >= p95
+      expect(p50).to eq(response_times.median)
+    end
+
+    it 'works with negative numbers' do
+      data = [-10, -5, 0, 5, 10]
+
+      expect(data.percentile(0)).to eq(-10)
+      expect(data.percentile(50)).to eq(0)
+      expect(data.percentile(100)).to eq(10)
+      expect(data.percentile(25)).to eq(-5.0)
+      expect(data.percentile(75)).to eq(5.0)
+    end
+
+    it 'maintains precision with floating point numbers' do
+      data = [1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0]
+
+      result = data.percentile(25)
+      expect(result).to be_within(0.001).of(1.325)
+
+      result = data.percentile(75)
+      expect(result).to be_within(0.001).of(1.775)
+    end
+  end
+
   describe '#variance' do
     it 'calculates variance for simple dataset' do
       # Sample variance of [1, 2, 3, 4, 5]
