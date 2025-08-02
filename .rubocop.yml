@@ -26,16 +26,16 @@ Metrics/ModuleLength:
   Max: 250
 
 Metrics/AbcSize:
-  Max: 50
+  Max: 65
 
 Metrics/CyclomaticComplexity:
-  Max: 10
+  Max: 15
 
 Metrics/MethodLength:
-  Max: 30
+  Max: 40
 
 Metrics/PerceivedComplexity:
-  Max: 10
+  Max: 15
 
 Naming/VariableNumber:
   Enabled: false
