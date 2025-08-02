@@ -408,7 +408,9 @@ module EnumerableStats
 
       # Fourth-order correction for very high accuracy
       if df >= 10
-        c4 = ((79.0 * (z**7)) + (776.0 * (z**5)) + (1482.0 * (z**3)) + (776.0 * z)) / CORNISH_FISHER_FOURTH_ORDER_DENOMINATOR
+        c4 = ((79.0 * (z**7)) + (776.0 * (z**5)) +
+          (1482.0 * (z**3)) + (776.0 * z)) / CORNISH_FISHER_FOURTH_ORDER_DENOMINATOR
+
         t += c4 / (df**4)
       end
 
