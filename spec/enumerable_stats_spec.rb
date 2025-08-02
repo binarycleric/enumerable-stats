@@ -996,8 +996,8 @@ RSpec.describe EnumerableStats do
     end
 
     it "handles edge cases with minimum sample sizes" do
-      small_a = [10, 15]   # n=2
-      small_b = [20, 25]   # n=2, clearly higher mean
+      small_a = [10, 15]   # n=2, mean=12.5
+      small_b = [20, 25]   # n=2, mean=22.5, clearly higher mean
 
       # With very small sample sizes, statistical significance may be harder to achieve
       # The test should verify the method works without error rather than specific results
@@ -1007,8 +1007,11 @@ RSpec.describe EnumerableStats do
       # Results should be boolean values
       result1 = small_b.greater_than?(small_a)
       result2 = small_a.greater_than?(small_b)
-      expect(result1).to be_falsey
-      expect(result2).to be_falsey
+
+      # With improved t-distribution accuracy, large differences can be detected even with small samples
+      # small_b (22.5) should be significantly greater than small_a (12.5)
+      expect(result1).to be_truthy  # small_b > small_a should be true
+      expect(result2).to be_falsey  # small_a > small_b should be false
     end
 
     it "is consistent with t_value method" do
