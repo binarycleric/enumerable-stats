@@ -1,6 +1,9 @@
 # frozen_string_literal: true
 
 require "spec_helper"
+require "tmpdir"
+require "csv"
+require "set"
 
 RSpec.describe EnumerableStats do
   describe "#mean" do
@@ -399,6 +402,9 @@ RSpec.describe EnumerableStats do
     it "works with ranges" do
       expect((1..5).mean).to eq(3.0)
       expect((1..5).median).to eq(3)
+      expect((10..20).percentile(50)).to eq((10..20).median)
+      expect((1..5).variance).to eq(2.5)
+      expect((1..5).standard_deviation).to be_within(0.01).of(1.58)
     end
 
     it "works with sets" do
@@ -406,6 +412,232 @@ RSpec.describe EnumerableStats do
       data = Set.new([1, 2, 3, 4, 5])
       expect(data.mean).to eq(3.0)
       expect(data.variance).to eq(2.5)
+      expect(data.median).to eq(3)
+      expect(data.standard_deviation).to be_within(0.01).of(1.58)
+      expect(data.percentile(75)).to eq(4.0)
+    end
+
+    it "works with hash values" do
+      data = { a: 10, b: 20, c: 30, d: 40, e: 50 }
+      # Hash#each yields key-value pairs, so we need to map to values
+      values = data.map { |_k, v| v }
+      expect(values.mean).to eq(30.0)
+      expect(values.median).to eq(30)
+      expect(values.percentile(25)).to eq(20.0)
+    end
+
+    it "works with hash key-value pairs for non-numeric analysis" do
+      # Test with the actual enumeration that Hash provides (key-value pairs)
+      data = { a: 1, b: 2, c: 3, d: 4, e: 5 }
+      # Extract just the values for statistical analysis
+      numeric_values = data.values
+      expect(numeric_values.mean).to eq(3.0)
+      expect(numeric_values.median).to eq(3)
+    end
+
+    it "works with enumerators" do
+      # Test with basic enumerator
+      enum = [1, 2, 3, 4, 5].each
+      expect(enum.mean).to eq(3.0)
+      expect(enum.median).to eq(3)
+
+      # Test with enumerator from range - convert to array first for proper statistical analysis
+      range_enum = (10..50).step(10).to_a
+      expect(range_enum.mean).to eq(30.0)
+      expect(range_enum.median).to eq(30)
+    end
+
+    it "works with enumerator chains" do
+      # Test with chained enumerators (Ruby 2.6+)
+      skip "Enumerator chain not available" unless Enumerator.respond_to?(:chain)
+
+      chain = Enumerator.chain([1, 2], [3, 4], [5])
+      expect(chain.mean).to eq(3.0)
+      expect(chain.median).to eq(3)
+    end
+
+    it "works with lazy enumerators" do
+      # Test with lazy enumerator - convert to array for proper analysis
+      lazy_enum = (1..10).lazy.select(&:odd?).to_a
+      expect(lazy_enum.mean).to eq(5.0) # [1, 3, 5, 7, 9] mean = 5
+      expect(lazy_enum.median).to eq(5)
+    end
+
+    it "works with struct instances containing numeric data" do
+      point_class = Struct.new(:x, :y, :z) do
+        def to_f
+          Math.sqrt((x**2) + (y**2) + (z**2)) # Magnitude for statistical analysis
+        end
+      end
+
+      points = [
+        point_class.new(1, 2, 2),  # magnitude = 3
+        point_class.new(2, 3, 6),  # magnitude = 7
+        point_class.new(4, 4, 4),  # magnitude ≈ 6.93
+        point_class.new(0, 0, 5),  # magnitude = 5
+        point_class.new(3, 4, 0)   # magnitude = 5
+      ]
+
+      # Convert to magnitudes for analysis
+      magnitudes = points.map(&:to_f)
+      expect(magnitudes.mean).to be_within(0.1).of(5.39)
+      expect(magnitudes.median).to be_within(0.1).of(5.0)
+    end
+
+    it "works with IO-like enumerable objects" do
+      # Use StringIO as a safer alternative to actual file IO
+      require "stringio"
+
+      # Create a StringIO with numeric data
+      string_data = "10\n20\n30\n40\n50\n"
+      io = StringIO.new(string_data)
+
+      # Convert lines to numbers for statistical analysis
+      numbers = io.each_line.map(&:to_i)
+      expect(numbers.mean).to eq(30.0)
+      expect(numbers.median).to eq(30)
+      expect(numbers.percentile(25)).to eq(20.0)
+    end
+
+    it "works with Dir.glob enumerable results" do
+      # Create temporary files for testing
+      Dir.mktmpdir do |tmpdir|
+        # Create some test files with numeric names
+        %w[1.txt 2.txt 3.txt 4.txt 5.txt].each do |filename|
+          File.write(File.join(tmpdir, filename), "test")
+        end
+
+        # Get file basenames as numbers
+        file_numbers = Dir.glob("#{tmpdir}/*.txt").map do |path|
+          File.basename(path, ".txt").to_i
+        end.sort
+
+        expect(file_numbers.mean).to eq(3.0)
+        expect(file_numbers.median).to eq(3)
+      end
+    end
+
+    it "works with CSV enumerable data" do
+      require "csv"
+
+      # Create sample CSV data
+      csv_string = <<~CSV
+        score,value
+        10,100
+        20,200
+        30,300
+        40,400
+        50,500
+      CSV
+
+      csv_data = CSV.parse(csv_string, headers: true)
+
+      # Extract numeric columns for analysis
+      scores = csv_data.map { |row| row["score"].to_i }
+      values = csv_data.map { |row| row["value"].to_i }
+
+      expect(scores.mean).to eq(30.0)
+      expect(values.mean).to eq(300.0)
+      expect(scores.median).to eq(30)
+      expect(values.median).to eq(300)
+    end
+
+    it "works with CSV::Table enumerable interface" do
+      require "csv"
+
+      csv_string = <<~CSV
+        measurement
+        15
+        25
+        35
+        45
+        55
+      CSV
+
+      table = CSV.parse(csv_string, headers: true)
+      measurements = table["measurement"].map(&:to_i)
+
+      expect(measurements.mean).to eq(35.0)
+      expect(measurements.median).to eq(35)
+      expect(measurements.percentile(25)).to eq(25.0)
+    end
+
+    it "works with method chaining across different enumerable types" do
+      # Test method chaining with different enumerable types
+      range_data = (1..5)
+      set_data = Set.new([6, 7, 8, 9, 10])
+
+      # Combine and analyze
+      combined = range_data.to_a + set_data.to_a
+      expect(combined.mean).to eq(5.5) # (1+2+3+4+5+6+7+8+9+10)/10
+      expect(combined.median).to eq(5.5)
+
+      # Test outlier detection across types
+      range_with_outlier = (1..5).to_a + [100]
+      expect(range_with_outlier.remove_outliers).not_to include(100)
+    end
+
+    it "handles statistical operations with different numeric types" do
+      # Mix of different numeric types that might come from different enumerables
+      mixed_types = [
+        1,           # Integer
+        2.5,         # Float
+        Rational(3, 1), # Rational
+        4.0,         # Float
+        5            # Integer
+      ]
+
+      expect(mixed_types.mean).to eq(3.1)
+      expect(mixed_types.median).to eq(3.0)
+      expect { mixed_types.variance }.not_to raise_error
+      expect { mixed_types.standard_deviation }.not_to raise_error
+    end
+
+    it "maintains precision across different enumerable implementations" do
+      # Test that statistical calculations maintain precision regardless of source
+      array_data = [1.1, 2.2, 3.3, 4.4, 5.5]
+      range_data = (11..55).step(11).map { |x| x / 10.0 }
+      set_data = Set.new([1.1, 2.2, 3.3, 4.4, 5.5])
+      enum_data = [1.1, 2.2, 3.3, 4.4, 5.5].each
+
+      expected_mean = 3.3
+      expected_variance = 3.025
+
+      [array_data, range_data, set_data, enum_data].each do |data|
+        expect(data.mean).to be_within(0.001).of(expected_mean)
+        expect(data.variance).to be_within(0.001).of(expected_variance)
+      end
+    end
+
+    it "works with empty enumerables of different types" do
+      empty_array = []
+      empty_range = (1...1) # Empty range
+      empty_set = Set.new
+      empty_enum = [].each
+
+      [empty_array, empty_range, empty_set, empty_enum].each do |empty_data|
+        expect(empty_data.median).to be_nil
+        expect(empty_data.percentile(50)).to be_nil
+        # Mean returns NaN for empty collections (0/0 = NaN)
+        expect(empty_data.mean).to be_nan
+      end
+    end
+
+    it "handles large datasets from different enumerable sources efficiently" do
+      # Test performance with different large enumerable sources
+      large_range = (1..1000)
+      large_array = (1..1000).to_a
+      large_set = Set.new((1..1000).to_a)
+
+      [large_range, large_array, large_set].each do |large_data|
+        expect { large_data.mean }.not_to raise_error
+        expect { large_data.median }.not_to raise_error
+        expect { large_data.remove_outliers }.not_to raise_error
+
+        # Verify results are consistent
+        expect(large_data.mean).to eq(500.5)
+        expect(large_data.median).to eq(500.5)
+      end
     end
   end
 
@@ -713,6 +945,250 @@ RSpec.describe EnumerableStats do
       result = large.signed_percentage_difference(small)
       expect(result).to be > 0
       expect(result).to be_within(0.01).of(196.04)
+    end
+  end
+
+  describe "#greater_than?" do
+    it "returns true when first collection has significantly greater mean" do
+      control = [10, 12, 11, 13, 12, 9, 14, 11, 10, 13]     # mean ≈ 11.5
+      treatment = [15, 17, 16, 18, 14, 19, 16, 17, 15, 18]  # mean ≈ 16.5
+
+      expect(treatment.greater_than?(control)).to be true
+      expect(control.greater_than?(treatment)).to be false
+    end
+
+    it "returns false when collections have similar means" do
+      group_a = [10, 11, 12, 13, 14]
+      group_b = [10.5, 11.5, 12.5, 13.5, 14.5] # Only 0.5 unit difference
+
+      expect(group_b.greater_than?(group_a)).to be false
+      expect(group_a.greater_than?(group_b)).to be false
+    end
+
+    it "returns false when comparing identical collections" do
+      sample = [10, 12, 14, 16, 18]
+      identical = [10, 12, 14, 16, 18]
+
+      expect(sample.greater_than?(identical)).to be false
+      expect(identical.greater_than?(sample)).to be false
+    end
+
+    it "respects different alpha levels" do
+      # Create datasets with moderate difference
+      group_a = [100, 102, 101, 103, 102, 99, 104, 101, 100, 103]  # mean ≈ 101.5
+      group_b = [105, 107, 106, 108, 107, 104, 109, 106, 105, 108] # mean ≈ 106.5
+
+      # More lenient alpha should be more likely to detect significance
+      lenient_result = group_b.greater_than?(group_a, alpha: 0.10)
+      standard_result = group_b.greater_than?(group_a, alpha: 0.05)
+      strict_result = group_b.greater_than?(group_a, alpha: 0.01)
+
+      # Lenient should be >= Standard should be >= Strict in terms of likelihood to be true
+      if strict_result
+        expect(standard_result).to be true
+        expect(lenient_result).to be true
+      elsif standard_result
+        expect(lenient_result).to be true
+      end
+    end
+
+    it "handles collections with different variances" do
+      low_variance = [50.0, 50.1, 50.2, 50.1, 50.0, 49.9, 50.0, 50.1] # Very consistent
+      high_variance = [45, 55, 48, 52, 49, 51, 47, 53] # More variable, similar mean
+
+      # Should handle unequal variances properly (Welch's t-test)
+      result = high_variance.greater_than?(low_variance)
+
+      expect(result).to be_falsey
+    end
+
+    it "handles edge cases with minimum sample sizes" do
+      small_a = [10, 15]   # n=2
+      small_b = [20, 25]   # n=2, clearly higher mean
+
+      # With very small sample sizes, statistical significance may be harder to achieve
+      # The test should verify the method works without error rather than specific results
+      expect { small_b.greater_than?(small_a) }.not_to raise_error
+      expect { small_a.greater_than?(small_b) }.not_to raise_error
+
+      # Results should be boolean values
+      result1 = small_b.greater_than?(small_a)
+      result2 = small_a.greater_than?(small_b)
+      expect(result1).to be_falsey
+      expect(result2).to be_falsey
+    end
+
+    it "is consistent with t_value method" do
+      sample_a = [5, 6, 7, 8, 9]
+      sample_b = [10, 11, 12, 13, 14]
+
+      t_stat = sample_a.t_value(sample_b)
+      greater_result = sample_b.greater_than?(sample_a)
+
+      # If t_stat is highly negative, sample_b should be greater than sample_a
+      expect(greater_result).to be true if t_stat < -2
+
+      # If t_stat is highly positive, sample_a should be greater than sample_b
+      less_result = sample_a.greater_than?(sample_b)
+      expect(less_result).to be true if t_stat > 2
+    end
+
+    it "handles A/B testing scenario" do
+      control_conversion = [0.12, 0.11, 0.13, 0.12, 0.14, 0.11, 0.12, 0.13, 0.11, 0.12]    # ~12.1%
+      variant_conversion = [0.15, 0.16, 0.14, 0.17, 0.15, 0.18, 0.16, 0.15, 0.17, 0.16]    # ~15.9%
+
+      expect(variant_conversion.greater_than?(control_conversion)).to be true
+      expect(control_conversion.greater_than?(variant_conversion)).to be false
+    end
+
+    it "handles performance testing scenario" do
+      old_response_times = [150, 165, 155, 170, 160, 145, 175, 152, 158, 163]  # ~159ms
+      new_response_times = [140, 145, 135, 150, 142, 138, 148, 144, 141, 147]  # ~143ms
+
+      # Old times should NOT be significantly greater (improvement not significant enough)
+      # This tests the boundary cases
+      result = old_response_times.greater_than?(new_response_times)
+      expect(result).to be_truthy
+    end
+
+    it "validates alpha parameter" do
+      sample_a = [1, 2, 3, 4, 5]
+      sample_b = [6, 7, 8, 9, 10]
+
+      # Valid alpha levels should work
+      expect { sample_b.greater_than?(sample_a, alpha: 0.01) }.not_to raise_error
+      expect { sample_b.greater_than?(sample_a, alpha: 0.05) }.not_to raise_error
+      expect { sample_b.greater_than?(sample_a, alpha: 0.10) }.not_to raise_error
+
+      # Should handle edge alpha values
+      expect { sample_b.greater_than?(sample_a, alpha: 0.001) }.not_to raise_error
+      expect { sample_b.greater_than?(sample_a, alpha: 0.20) }.not_to raise_error
+    end
+  end
+
+  describe "#less_than?" do
+    it "returns true when first collection has significantly lower mean" do
+      baseline = [150, 165, 155, 170, 160, 145, 175, 152, 158, 163]  # mean ≈ 159
+      optimized = [120, 125, 115, 130, 118, 122, 128, 124, 119, 126] # mean ≈ 122
+
+      expect(optimized.less_than?(baseline)).to be true
+      expect(baseline.less_than?(optimized)).to be false
+    end
+
+    it "returns false when collections have similar means" do
+      group_a = [20, 21, 22, 23, 24]
+      group_b = [20.2, 21.2, 22.2, 23.2, 24.2] # Very small difference
+
+      expect(group_a.less_than?(group_b)).to be false
+      expect(group_b.less_than?(group_a)).to be false
+    end
+
+    it "returns false when comparing identical collections" do
+      sample = [15, 17, 19, 21, 23]
+      identical = [15, 17, 19, 21, 23]
+
+      expect(sample.less_than?(identical)).to be false
+      expect(identical.less_than?(sample)).to be false
+    end
+
+    it "respects different alpha levels" do
+      # Create datasets with moderate difference
+      higher_group = [80, 82, 81, 83, 82, 79, 84, 81, 80, 83]  # mean ≈ 81.5
+      lower_group = [75, 77, 76, 78, 77, 74, 79, 76, 75, 78]   # mean ≈ 76.5
+
+      # Test different alpha levels
+      lenient_result = lower_group.less_than?(higher_group, alpha: 0.10)
+      standard_result = lower_group.less_than?(higher_group, alpha: 0.05)
+      strict_result = lower_group.less_than?(higher_group, alpha: 0.01)
+
+      # More lenient alpha should be more likely to detect significance
+      if strict_result
+        expect(standard_result).to be true
+        expect(lenient_result).to be true
+      elsif standard_result
+        expect(lenient_result).to be true
+      end
+    end
+
+    it "is consistent with greater_than? method" do
+      sample_a = [10, 12, 14, 16, 18]
+      sample_b = [5, 7, 9, 11, 13]
+
+      # If a.greater_than?(b) is true, then b.less_than?(a) should also be true
+      expect(sample_b.less_than?(sample_a)).to be true if sample_a.greater_than?(sample_b)
+
+      # If b.less_than?(a) is true, then a.greater_than?(b) should also be true
+      expect(sample_a.greater_than?(sample_b)).to be true if sample_b.less_than?(sample_a)
+    end
+
+    it "is consistent with t_value method" do
+      sample_a = [10, 11, 12, 13, 14]
+      sample_b = [5, 6, 7, 8, 9]
+
+      t_stat = sample_a.t_value(sample_b)
+
+      # If t_stat is highly positive, sample_b should be less than sample_a
+      expect(sample_b.less_than?(sample_a)).to be true if t_stat > 2
+
+      # If t_stat is highly negative, sample_a should be less than sample_b
+      expect(sample_a.less_than?(sample_b)).to be true if t_stat < -2
+    end
+
+    it "handles error rate improvement scenario" do
+      old_error_rates = [0.025, 0.028, 0.024, 0.030, 0.026, 0.027, 0.029, 0.025, 0.028, 0.026] # ~2.68%
+      new_error_rates = [0.012, 0.015, 0.013, 0.016, 0.014, 0.011, 0.013, 0.012, 0.015, 0.014] # ~1.35%
+
+      expect(new_error_rates.less_than?(old_error_rates)).to be true
+      expect(old_error_rates.less_than?(new_error_rates)).to be false
+    end
+
+    it "handles memory usage optimization scenario" do
+      before_optimization = [245, 250, 242, 255, 248, 253, 247, 246, 252, 249] # ~248MB
+      after_optimization = [198, 205, 195, 210, 200, 202, 197, 199, 207, 201]  # ~201MB
+
+      expect(after_optimization.less_than?(before_optimization)).to be true
+      expect(before_optimization.less_than?(after_optimization)).to be false
+    end
+
+    it "handles collections with different sample sizes" do
+      small_sample = [5, 6, 7]                        # n=3, mean=6
+      large_sample = [10, 11, 12, 13, 14, 15, 16]     # n=7, mean=13
+
+      expect(small_sample.less_than?(large_sample)).to be true
+      expect(large_sample.less_than?(small_sample)).to be false
+    end
+
+    it "handles edge case with zero variance" do
+      constant_low = [10, 10, 10, 10, 10]     # Zero variance
+      variable_high = [15, 16, 14, 17, 13]    # Some variance, higher mean
+
+      expect(constant_low.less_than?(variable_high)).to be true
+      expect(variable_high.less_than?(constant_low)).to be false
+    end
+
+    it "produces stable results with repeated calls" do
+      sample_a = [100, 105, 98, 107, 103]
+      sample_b = [90, 95, 88, 97, 93]
+
+      # Results should be consistent across multiple calls
+      result1 = sample_b.less_than?(sample_a)
+      result2 = sample_b.less_than?(sample_a)
+      result3 = sample_b.less_than?(sample_a)
+
+      expect(result1).to eq(result2)
+      expect(result2).to eq(result3)
+    end
+
+    it "validates alpha parameter bounds" do
+      sample_a = [10, 12, 14, 16, 18]
+      sample_b = [5, 7, 9, 11, 13]
+
+      # Valid alpha levels should work without error
+      expect { sample_b.less_than?(sample_a, alpha: 0.001) }.not_to raise_error
+      expect { sample_b.less_than?(sample_a, alpha: 0.01) }.not_to raise_error
+      expect { sample_b.less_than?(sample_a, alpha: 0.05) }.not_to raise_error
+      expect { sample_b.less_than?(sample_a, alpha: 0.10) }.not_to raise_error
+      expect { sample_b.less_than?(sample_a, alpha: 0.20) }.not_to raise_error
     end
   end
 

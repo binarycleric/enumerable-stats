@@ -165,6 +165,66 @@ df_unequal = unequal_a.degrees_of_freedom(unequal_b)
 puts df_unequal  # => ~6.2 (much less than 5 + 7 - 2 = 10)
 ```
 
+#### `#greater_than?(other, alpha: 0.05)`
+
+Tests if this collection's mean is significantly greater than another collection's mean using a one-tailed Student's t-test. Returns `true` if the difference is statistically significant at the specified alpha level.
+
+```ruby
+# A/B testing: is the new feature performing better?
+control_conversion = [0.118, 0.124, 0.116, 0.121, 0.119, 0.122, 0.117] # ~12.0% avg
+variant_conversion = [0.135, 0.142, 0.138, 0.144, 0.140, 0.136, 0.139] # ~13.9% avg
+
+# Is the variant significantly better than control?
+puts variant_conversion.greater_than?(control_conversion)  # => true (significant improvement)
+puts control_conversion.greater_than?(variant_conversion)  # => false
+
+# Performance testing: is new optimization significantly faster?
+old_response_times = [145, 152, 148, 159, 143, 156, 147, 151, 149, 154] # ~150ms avg
+new_response_times = [125, 128, 122, 131, 124, 129, 126, 130, 123, 127] # ~126ms avg
+
+# Are old times significantly greater (worse) than new times?
+puts old_response_times.greater_than?(new_response_times)  # => true (significant improvement)
+
+# Custom significance level for more conservative testing
+puts variant_conversion.greater_than?(control_conversion, alpha: 0.01)  # 99% confidence
+puts variant_conversion.greater_than?(control_conversion, alpha: 0.10)  # 90% confidence
+
+# Check with similar groups (should be false)
+similar_a = [10, 11, 12, 13, 14]
+similar_b = [10.5, 11.5, 12.5, 13.5, 14.5]
+puts similar_b.greater_than?(similar_a)  # => false (difference not significant)
+```
+
+#### `#less_than?(other, alpha: 0.05)`
+
+Tests if this collection's mean is significantly less than another collection's mean using a one-tailed Student's t-test. Returns `true` if the difference is statistically significant at the specified alpha level.
+
+```ruby
+# Response time improvement: are new times significantly lower?
+baseline_times = [150, 165, 155, 170, 160, 145, 175, 152, 158, 163] # ~159ms avg
+optimized_times = [120, 125, 115, 130, 118, 122, 128, 124, 119, 126] # ~123ms avg
+
+# Are optimized times significantly less (better) than baseline?
+puts optimized_times.less_than?(baseline_times)  # => true (significant improvement)
+puts baseline_times.less_than?(optimized_times)  # => false
+
+# Error rate reduction: is new implementation significantly better?
+old_error_rates = [0.025, 0.028, 0.024, 0.030, 0.026, 0.027, 0.029] # ~2.7% avg
+new_error_rates = [0.012, 0.015, 0.013, 0.016, 0.014, 0.011, 0.013] # ~1.3% avg
+
+puts new_error_rates.less_than?(old_error_rates)  # => true (significantly fewer errors)
+
+# Memory usage optimization
+before_optimization = [245, 250, 242, 255, 248, 253, 247] # ~248MB avg
+after_optimization = [198, 205, 195, 210, 200, 202, 197]  # ~201MB avg
+
+puts after_optimization.less_than?(before_optimization)  # => true (significant reduction)
+
+# Custom alpha levels
+puts optimized_times.less_than?(baseline_times, alpha: 0.01)  # More stringent test
+puts optimized_times.less_than?(baseline_times, alpha: 0.10)  # More lenient test
+```
+
 ### Comparison Methods
 
 #### `#percentage_difference(other)`
@@ -527,6 +587,8 @@ end
 | `standard_deviation` | Sample standard deviation | Float | Square root of variance |
 | `t_value(other)` | T-statistic for hypothesis testing | Float | Uses Welch's t-test, handles unequal variances |
 | `degrees_of_freedom(other)` | Degrees of freedom for t-test | Float | Uses Welch's formula, accounts for unequal variances |
+| `greater_than?(other, alpha: 0.05)` | Test if mean is significantly greater | Boolean | One-tailed t-test, customizable alpha level |
+| `less_than?(other, alpha: 0.05)` | Test if mean is significantly less | Boolean | One-tailed t-test, customizable alpha level |
 | `percentage_difference(other)` | Absolute percentage difference | Float | Always positive, symmetric comparison |
 | `signed_percentage_difference(other)` | Signed percentage difference | Float | Preserves direction, useful for A/B tests |
 | `remove_outliers(multiplier: 1.5)` | Remove outliers using IQR method | Array | Returns new array, original unchanged |
