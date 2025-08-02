@@ -26,6 +26,8 @@ module EnumerableStats
   #   treatment = [15, 17, 19, 21, 23]
   #   control.t_value(treatment)     #=> negative t-statistic
   #   control.degrees_of_freedom(treatment) #=> degrees of freedom for Welch's t-test
+  #   treatment.greater_than?(control) #=> true (treatment mean significantly > control mean)
+  #   control.less_than?(treatment)    #=> true (control mean significantly < treatment mean)
   #
   # @see Enumerable
   # @since 0.1.0
@@ -102,6 +104,46 @@ module EnumerableStats
       d2 = (other.variance**2) / ((other.count**2) * (other.count - 1))
 
       n / (d1 + d2)
+    end
+
+    # Tests if this collection's mean is significantly greater than another collection's mean
+    # using a one-tailed Student's t-test. Returns true if the test indicates statistical
+    # significance at the specified alpha level.
+    #
+    # @param other [Enumerable] Another collection to compare against
+    # @param alpha [Float] Significance level (default: 0.05 for 95% confidence)
+    # @return [Boolean] True if this collection's mean is significantly greater
+    # @example
+    #   control = [10, 12, 11, 13, 12]     # mean ≈ 11.6
+    #   treatment = [15, 17, 16, 18, 14]   # mean = 16.0
+    #   treatment.greater_than?(control)   # => true (treatment significantly > control)
+    #   control.greater_than?(treatment)   # => false
+    def greater_than?(other, alpha: 0.05)
+      t_stat = t_value(other)
+      df = degrees_of_freedom(other)
+      critical_value = critical_t_value(df, alpha)
+
+      t_stat > critical_value
+    end
+
+    # Tests if this collection's mean is significantly less than another collection's mean
+    # using a one-tailed Student's t-test. Returns true if the test indicates statistical
+    # significance at the specified alpha level.
+    #
+    # @param other [Enumerable] Another collection to compare against
+    # @param alpha [Float] Significance level (default: 0.05 for 95% confidence)
+    # @return [Boolean] True if this collection's mean is significantly less
+    # @example
+    #   control = [10, 12, 11, 13, 12]     # mean ≈ 11.6
+    #   treatment = [15, 17, 16, 18, 14]   # mean = 16.0
+    #   control.less_than?(treatment)      # => true (control significantly < treatment)
+    #   treatment.less_than?(control)      # => false
+    def less_than?(other, alpha: 0.05)
+      t_stat = t_value(other)
+      df = degrees_of_freedom(other)
+      critical_value = critical_t_value(df, alpha)
+
+      t_stat < -critical_value
     end
 
     # Calculates the arithmetic mean (average) of the collection
@@ -274,6 +316,79 @@ module EnumerableStats
         outliers_removed: original_count - filtered.size,
         outlier_percentage: ((original_count - filtered.size).to_f / original_count * 100).round(2)
       }
+    end
+
+    private
+
+    # Calculates the critical t-value for a one-tailed test given degrees of freedom and alpha level
+    # Uses a lookup table for common df values and approximations for others
+    #
+    # @param df [Float] Degrees of freedom
+    # @param alpha [Float] Significance level (e.g., 0.05 for 95% confidence)
+    # @return [Float] Critical t-value for one-tailed test
+    def critical_t_value(df, alpha)
+      # For large df (≥30), t-distribution approximates normal distribution
+      return normal_critical_value(alpha) if df >= 30
+
+      # Lookup table for common t-values (one-tailed, α = 0.05)
+      # These are standard critical values from t-tables
+      t_table_05 = {
+        1 => 6.314, 2 => 2.920, 3 => 2.353, 4 => 2.132, 5 => 2.015,
+        6 => 1.943, 7 => 1.895, 8 => 1.860, 9 => 1.833, 10 => 1.812,
+        11 => 1.796, 12 => 1.782, 13 => 1.771, 14 => 1.761, 15 => 1.753,
+        16 => 1.746, 17 => 1.740, 18 => 1.734, 19 => 1.729, 20 => 1.725,
+        21 => 1.721, 22 => 1.717, 23 => 1.714, 24 => 1.711, 25 => 1.708,
+        26 => 1.706, 27 => 1.703, 28 => 1.701, 29 => 1.699
+      }
+
+      # Lookup table for common t-values (one-tailed, α = 0.01)
+      t_table_01 = {
+        1 => 31.821, 2 => 6.965, 3 => 4.541, 4 => 3.747, 5 => 3.365,
+        6 => 3.143, 7 => 2.998, 8 => 2.896, 9 => 2.821, 10 => 2.764,
+        11 => 2.718, 12 => 2.681, 13 => 2.650, 14 => 2.624, 15 => 2.602,
+        16 => 2.583, 17 => 2.567, 18 => 2.552, 19 => 2.539, 20 => 2.528,
+        21 => 2.518, 22 => 2.508, 23 => 2.500, 24 => 2.492, 25 => 2.485,
+        26 => 2.479, 27 => 2.473, 28 => 2.467, 29 => 2.462
+      }
+
+      df_int = df.round
+
+      if alpha <= 0.01
+        t_table_01[df_int] || t_table_01[29] # Use df=29 as fallback for larger values
+      elsif alpha <= 0.05
+        t_table_05[df_int] || t_table_05[29] # Use df=29 as fallback for larger values
+      else
+        # For alpha > 0.05, interpolate or use approximation
+        # This is a rough approximation for other alpha levels
+        base_t = t_table_05[df_int] || t_table_05[29]
+        base_t * ((0.05 / alpha)**0.5)
+      end
+    end
+
+    # Returns the critical value for standard normal distribution (z-score)
+    # Used when degrees of freedom is large (≥30)
+    #
+    # @param alpha [Float] Significance level
+    # @return [Float] Critical z-value for one-tailed test
+    def normal_critical_value(alpha)
+      # Common z-values for one-tailed tests
+      # Use approximate comparisons to avoid float equality issues
+      if (alpha - 0.10).abs < 1e-10
+        1.282
+      elsif (alpha - 0.05).abs < 1e-10
+        1.645
+      elsif (alpha - 0.025).abs < 1e-10
+        1.960
+      elsif (alpha - 0.01).abs < 1e-10
+        2.326
+      elsif (alpha - 0.005).abs < 1e-10
+        2.576
+      else
+        # Approximation using inverse normal for other alpha values
+        # This is a rough approximation of the inverse normal CDF
+        # For α = 0.05, this gives approximately 1.645
+        Math.sqrt(-2 * Math.log(alpha))
+      end
     end
   end
 end
