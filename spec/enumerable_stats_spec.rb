@@ -4,6 +4,7 @@ require "spec_helper"
 require "tmpdir"
 require "csv"
 require "set"
+require "stringio"
 
 RSpec.describe EnumerableStats do
   describe "#mean" do
@@ -408,7 +409,6 @@ RSpec.describe EnumerableStats do
     end
 
     it "works with sets" do
-      require "set"
       data = Set.new([1, 2, 3, 4, 5])
       expect(data.mean).to eq(3.0)
       expect(data.variance).to eq(2.5)
@@ -485,9 +485,6 @@ RSpec.describe EnumerableStats do
     end
 
     it "works with IO-like enumerable objects" do
-      # Use StringIO as a safer alternative to actual file IO
-      require "stringio"
-
       # Create a StringIO with numeric data
       string_data = "10\n20\n30\n40\n50\n"
       io = StringIO.new(string_data)
@@ -518,8 +515,6 @@ RSpec.describe EnumerableStats do
     end
 
     it "works with CSV enumerable data" do
-      require "csv"
-
       # Create sample CSV data
       csv_string = <<~CSV
         score,value
@@ -543,8 +538,6 @@ RSpec.describe EnumerableStats do
     end
 
     it "works with CSV::Table enumerable interface" do
-      require "csv"
-
       csv_string = <<~CSV
         measurement
         15
