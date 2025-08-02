@@ -374,12 +374,28 @@ module EnumerableStats
         # Cauchy distribution: exact inverse
         return Math.tan(Math::PI * (0.5 - alpha))
       elsif df == 2
-        # Exact formula for df=2: t = z / sqrt(1 - z^2/(z^2 + 2))
-        # This is more numerically stable
-        z_sq = z**2
-        # Exact formula for df=2: t = z / sqrt(1 - z^2/(z^2 + 2))
-        return z / Math.sqrt(1.0 - (z_sq / (z_sq + 2.0)))
+        # Exact closed-form solution for df=2
+        # For df=2, CDF: F(t) = 1/2 * (1 + t/√(t² + 2))
+        # Quantile function: t = (2p - 1)/√(2p(1 - p)) where p = 1 - α
 
+        p = 1.0 - alpha
+
+        # Handle edge cases
+        return Float::INFINITY if p >= 1.0
+        return -Float::INFINITY if p <= 0.0
+
+        # For p very close to 0.5, use normal approximation to avoid numerical issues
+        return 0.0 if (p - 0.5).abs < 1e-10
+
+        # Apply exact formula: t = (2p - 1)/√(2p(1 - p))
+        numerator = (2.0 * p) - 1.0
+        denominator_sq = 2.0 * p * (1.0 - p)
+
+        # Ensure we don't have numerical issues with the square root
+        return numerator / Math.sqrt(denominator_sq) if denominator_sq.positive?
+
+        # Fallback to normal approximation for edge cases
+        return z
       end
 
       # Use Cornish-Fisher expansion for general case
@@ -388,29 +404,31 @@ module EnumerableStats
       # Base normal quantile
       t = z
 
-      # First-order correction
+      # First-order correction - Cornish-Fisher expansion
+      # Standard form: (z³ + z)/(4ν)
       if df >= 4
-        c1 = z / 4.0
+        c1 = ((z**3) + z) / 4.0
         t += c1 / df
       end
 
-      # Second-order correction
+      # Second-order correction - Cornish-Fisher expansion
+      # Standard form: (5z⁵ + 16z³ + 3z)/(96ν²)
       if df >= 6
-        c2 = ((5.0 * (z**3)) + (16.0 * z)) / 96.0
+        c2 = ((5.0 * (z**5)) + (16.0 * (z**3)) + (3.0 * z)) / 96.0
         t += c2 / (df**2)
       end
 
       # Third-order correction for better accuracy
+      # Standard form: (3z⁷ + 19z⁵ + 17z³ - 15z)/(384ν³)
       if df >= 8
-        c3 = ((3.0 * (z**5)) + (19.0 * (z**3)) + (17.0 * z)) / 384.0
+        c3 = ((3.0 * (z**7)) + (19.0 * (z**5)) + (17.0 * (z**3)) - (15.0 * z)) / 384.0
         t += c3 / (df**3)
       end
 
-      # Fourth-order correction for very high accuracy
-      if df >= 10
-        c4 = ((79.0 * (z**7)) + (776.0 * (z**5)) +
-          (1482.0 * (z**3)) + (776.0 * z)) / CORNISH_FISHER_FOURTH_ORDER_DENOMINATOR
-
+      # Fourth-order correction - using standard coefficients
+      # More conservative approach for high accuracy
+      if df >= 12
+        c4 = ((79.0 * (z**7)) + (776.0 * (z**5)) + (1482.0 * (z**3)) + (776.0 * z)) / CORNISH_FISHER_FOURTH_ORDER_DENOMINATOR
         t += c4 / (df**4)
       end
 

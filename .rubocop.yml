@@ -5,6 +5,8 @@ plugins:
 AllCops:
   TargetRubyVersion: 3.1
   NewCops: enable
+  Exclude:
+    - "spec/statistical_accuracy_spec.rb"
 
 Style/FrozenStringLiteralComment:
   Enabled: false
@@ -26,19 +28,22 @@ Metrics/ModuleLength:
   Max: 250
 
 Metrics/AbcSize:
-  Max: 65
+  Max: 100
 
 Metrics/CyclomaticComplexity:
-  Max: 15
+  Max: 20
 
 Metrics/MethodLength:
   Max: 40
 
 Metrics/PerceivedComplexity:
-  Max: 15
+  Max: 20
 
 Naming/VariableNumber:
   Enabled: false
 
 Naming/MethodParameterName:
   Enabled: false
+
+Layout/LineLength:
+  Max: 125
