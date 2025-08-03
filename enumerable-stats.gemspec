@@ -1,8 +1,10 @@
 # frozen_string_literal: true
 
+require_relative "lib/enumerable_stats/version"
+
 Gem::Specification.new do |s|
   s.name        = "enumerable-stats"
-  s.version     = "1.3.0"
+  s.version     = EnumerableStats::VERSION
   s.licenses    = ["MIT"]
   s.summary     = "Statistical Methods for Enumerable Collections"
   s.description = <<~DESC
