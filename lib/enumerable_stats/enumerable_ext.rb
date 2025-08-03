@@ -93,6 +93,9 @@ module EnumerableStats
     #   treatment = [15, 17, 16, 18, 14]
     #   t_stat = control.t_value(treatment)  # => ~-4.2 (negative means treatment > control)
     def t_value(other)
+      raise ArgumentError, "Cannot compare with an empty collection" if empty? || other.empty?
+      raise ArgumentError, "Parameter must be an Enumerable" unless other.respond_to?(:mean)
+
       signal = (mean - other.mean)
       noise = Math.sqrt(
         ((standard_deviation**2) / count) +
@@ -142,6 +145,16 @@ module EnumerableStats
       critical_value = critical_t_value(df, alpha)
 
       t_stat > critical_value
+    end
+
+    # Alias for greater_than?
+    def >(other)
+      greater_than?(other)
+    end
+
+    # Alias for less_than?
+    def <(other)
+      less_than?(other)
     end
 
     # Tests if this collection's mean is significantly less than another collection's mean
