@@ -7,7 +7,7 @@ AllCops:
   NewCops: enable
   Exclude:
     - "spec/statistical_accuracy_spec.rb"
-    - "vendor/**/*.*"
+    - "vendor/**/*"
 
 Style/FrozenStringLiteralComment:
   Enabled: false
