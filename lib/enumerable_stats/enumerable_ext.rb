@@ -148,13 +148,13 @@ module EnumerableStats
     end
 
     # Alias for greater_than?
-    def >(other)
-      greater_than?(other)
+    def >(other, alpha: 0.05)
+      greater_than?(other, alpha: alpha)
     end
 
     # Alias for less_than?
-    def <(other)
-      less_than?(other)
+    def <(other, alpha: 0.05)
+      less_than?(other, alpha: alpha)
     end
 
     # Tests if this collection's mean is significantly less than another collection's mean
