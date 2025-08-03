@@ -225,6 +225,31 @@ puts optimized_times.less_than?(baseline_times, alpha: 0.01)  # More stringent t
 puts optimized_times.less_than?(baseline_times, alpha: 0.10)  # More lenient test
 ```
 
+#### Comparison Operators
+
+The gem provides convenient operator shortcuts for statistical comparisons:
+
+##### `#>(other, alpha: 0.05)` and `#<(other, alpha: 0.05)`
+
+Shorthand operators for `greater_than?` and `less_than?` respectively.
+
+```ruby
+# Performance comparison using operators
+baseline_times = [150, 165, 155, 170, 160, 145, 175]
+optimized_times = [120, 125, 115, 130, 118, 122, 128]
+
+# These are equivalent:
+puts baseline_times.greater_than?(optimized_times)  # => true
+puts baseline_times > optimized_times               # => true
+
+puts optimized_times.less_than?(baseline_times)    # => true
+puts optimized_times < baseline_times               # => true
+
+# With custom alpha levels (use explicit method syntax for parameters)
+puts baseline_times.>(optimized_times, alpha: 0.01)  # More stringent
+puts optimized_times.<(baseline_times, alpha: 0.10)  # More lenient
+```
+
 ### Comparison Methods
 
 #### `#percentage_difference(other)`
@@ -589,6 +614,8 @@ end
 | `degrees_of_freedom(other)` | Degrees of freedom for t-test | Float | Uses Welch's formula, accounts for unequal variances |
 | `greater_than?(other, alpha: 0.05)` | Test if mean is significantly greater | Boolean | One-tailed t-test, customizable alpha level |
 | `less_than?(other, alpha: 0.05)` | Test if mean is significantly less | Boolean | One-tailed t-test, customizable alpha level |
+| `>(other, alpha: 0.05)` | Alias for `greater_than?` | Boolean | Shorthand operator for statistical comparison |
+| `<(other, alpha: 0.05)` | Alias for `less_than?` | Boolean | Shorthand operator for statistical comparison |
 | `percentage_difference(other)` | Absolute percentage difference | Float | Always positive, symmetric comparison |
 | `signed_percentage_difference(other)` | Signed percentage difference | Float | Preserves direction, useful for A/B tests |
 | `remove_outliers(multiplier: 1.5)` | Remove outliers using IQR method | Array | Returns new array, original unchanged |

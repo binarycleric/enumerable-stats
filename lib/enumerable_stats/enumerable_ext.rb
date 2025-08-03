@@ -147,16 +147,6 @@ module EnumerableStats
       t_stat > critical_value
     end
 
-    # Alias for greater_than?
-    def >(other, alpha: 0.05)
-      greater_than?(other, alpha: alpha)
-    end
-
-    # Alias for less_than?
-    def <(other, alpha: 0.05)
-      less_than?(other, alpha: alpha)
-    end
-
     # Tests if this collection's mean is significantly less than another collection's mean
     # using a one-tailed Student's t-test. Returns true if the test indicates statistical
     # significance at the specified alpha level.
@@ -175,6 +165,32 @@ module EnumerableStats
       critical_value = critical_t_value(df, alpha)
 
       t_stat < -critical_value
+    end
+
+    # Operator alias for greater_than? - tests if this collection's mean is significantly greater
+    #
+    # @param other [Enumerable] Another collection to compare against
+    # @param alpha [Float] The significance level (default: 0.05 for 95% confidence)
+    # @return [Boolean] true if this collection's mean is significantly greater
+    # @example
+    #   baseline = [100, 110, 105, 115, 95]
+    #   optimized = [85, 95, 90, 100, 80]
+    #   baseline > optimized  # => true (baseline is significantly greater)
+    def >(other, alpha: 0.05)
+      greater_than?(other, alpha: alpha)
+    end
+
+    # Operator alias for less_than? - tests if this collection's mean is significantly less
+    #
+    # @param other [Enumerable] Another collection to compare against
+    # @param alpha [Float] The significance level (default: 0.05 for 95% confidence)
+    # @return [Boolean] true if this collection's mean is significantly less
+    # @example
+    #   optimized = [85, 95, 90, 100, 80]
+    #   baseline = [100, 110, 105, 115, 95]
+    #   optimized < baseline  # => true (optimized is significantly less)
+    def <(other, alpha: 0.05)
+      less_than?(other, alpha: alpha)
     end
 
     # Calculates the arithmetic mean (average) of the collection
