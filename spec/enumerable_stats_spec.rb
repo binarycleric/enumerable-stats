@@ -941,6 +941,15 @@ RSpec.describe EnumerableStats do
     end
   end
 
+  describe "#greater_than? alias" do
+    it "returns true when first collection has significantly greater mean" do
+      control = [10, 12, 11, 13, 12, 9, 14, 11, 10, 13]     # mean ≈ 11.5
+      treatment = [15, 17, 16, 18, 14, 19, 16, 17, 15, 18]  # mean ≈ 16.5
+
+      expect(treatment > control).to be true
+    end
+  end
+
   describe "#greater_than?" do
     it "returns true when first collection has significantly greater mean" do
       control = [10, 12, 11, 13, 12, 9, 14, 11, 10, 13]     # mean ≈ 11.5
@@ -1060,6 +1069,16 @@ RSpec.describe EnumerableStats do
       # Should handle edge alpha values
       expect { sample_b.greater_than?(sample_a, alpha: 0.001) }.not_to raise_error
       expect { sample_b.greater_than?(sample_a, alpha: 0.20) }.not_to raise_error
+    end
+  end
+
+  describe "#less_than? alias" do
+    it "returns true when first collection has significantly lower mean" do
+      baseline = [150, 165, 155, 170, 160, 145, 175, 152, 158, 163]  # mean ≈ 159
+      optimized = [120, 125, 115, 130, 118, 122, 128, 124, 119, 126] # mean ≈ 122
+
+      expect(optimized.less_than?(baseline)).to be true
+      expect(baseline.less_than?(optimized)).to be false
     end
   end
 
