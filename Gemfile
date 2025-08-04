@@ -4,6 +4,11 @@ source "https://rubygems.org"
 
 gemspec
 
+group :development do
+  gem "gem-release"
+  gem "rake"
+end
+
 group :test do
   gem "csv"
   gem "rspec"
