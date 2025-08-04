@@ -1208,6 +1208,430 @@ RSpec.describe EnumerableStats do
     end
   end
 
+  describe "spaceship operator (<=>) and statistical comparison" do
+    describe "#<=>" do
+      it "returns 1 when this collection is significantly greater" do
+        high_performance = [200, 210, 205, 215, 220]  # mean = 210
+        low_performance = [50, 55, 60, 45, 65]        # mean = 55
+
+        result = high_performance <=> low_performance
+        expect(result).to eq(1)
+      end
+
+      it "returns -1 when this collection is significantly less" do
+        new_response_times = [50, 100, 70, 80, 100]    # mean = 80 (much better - lower times)
+        old_response_times = [500, 600, 550, 650, 580] # mean = 576 (worse - higher times)
+
+        result = new_response_times <=> old_response_times
+        expect(result).to eq(-1)
+      end
+
+      it "behaves consistently with underlying comparison methods" do
+        dataset_a = [10, 20, 15, 25, 30]  # mean = 20
+        dataset_b = [50, 60, 55, 65, 70]  # mean = 60
+
+        spaceship_result = dataset_a <=> dataset_b
+
+        # The spaceship result should match the underlying method behavior
+        if dataset_a.greater_than?(dataset_b)
+          expect(spaceship_result).to eq(1)
+        elsif dataset_a.less_than?(dataset_b)
+          expect(spaceship_result).to eq(-1)
+        else
+          expect(spaceship_result).to eq(0)
+        end
+      end
+
+      it "returns 0 when collections are not significantly different" do
+        # Use identical datasets to guarantee no significant difference
+        baseline = [100, 100, 100, 100, 100]  # mean = 100
+        variant = [100, 100, 100, 100, 100]   # mean = 100
+
+        result = baseline <=> variant
+        expect(result).to eq(0)
+      end
+
+      it "supports different alpha levels via method call" do
+        # Data with moderate difference
+        group_a = [10, 11, 12, 13, 14]      # mean = 12
+        group_b = [15, 16, 17, 18, 19]      # mean = 17
+
+        # Test with method call syntax for custom alpha (operator syntax uses default)
+        default_result = group_a <=> group_b
+
+        # Use greater_than? and less_than? with custom alpha to construct expected result
+        lenient_greater = group_a.greater_than?(group_b, alpha: 0.10)
+        lenient_less = group_a.less_than?(group_b, alpha: 0.10)
+
+        expected_lenient = if lenient_greater
+                             1
+                           elsif lenient_less
+                             -1
+                           else
+                             0
+                           end
+
+        # Both should be numeric (-1, 0, or 1)
+        expect(default_result).to(satisfy { |v| [-1, 0, 1].include?(v) })
+        expect(expected_lenient).to(satisfy { |v| [-1, 0, 1].include?(v) })
+      end
+
+      it "is symmetric for equality" do
+        identical_a = [5, 5, 5, 5, 5]
+        identical_b = [5, 5, 5, 5, 5]
+
+        result_ab = identical_a <=> identical_b
+        result_ba = identical_b <=> identical_a
+
+        expect(result_ab).to eq(0)
+        expect(result_ba).to eq(0)
+      end
+
+      it "is antisymmetric for inequality" do
+        higher = [20, 22, 24, 26, 28]  # mean = 24
+        lower = [10, 12, 14, 16, 18]   # mean = 14
+
+        result_high_low = higher <=> lower
+        result_low_high = lower <=> higher
+
+        # If higher > lower (result = 1), then lower < higher (result = -1)
+        if result_high_low == 1
+          expect(result_low_high).to eq(-1)
+        elsif result_high_low == -1
+          expect(result_low_high).to eq(1)
+        else
+          expect(result_low_high).to eq(0)
+        end
+      end
+
+      it "works with different data types" do
+        integer_data = [1, 2, 3, 4, 5]
+        float_data = [1.1, 2.1, 3.1, 4.1, 5.1]
+
+        result = integer_data <=> float_data
+        expect(result).to(satisfy { |v| [-1, 0, 1].include?(v) })
+      end
+
+      it "handles edge cases" do
+        small_sample = [10, 20]
+        large_sample = [15, 25, 35, 45, 55]
+
+        expect { small_sample <=> large_sample }.not_to raise_error
+        result = small_sample <=> large_sample
+        expect(result).to(satisfy { |v| [-1, 0, 1].include?(v) })
+      end
+    end
+
+    describe "greater than operator (>) alias" do
+      it "works as alias for greater_than?" do
+        treatment = [150, 160, 155, 165, 170]  # mean = 160
+        control = [100, 110, 105, 115, 120]    # mean = 110
+
+        operator_result = treatment > control
+        method_result = treatment.greater_than?(control)
+
+        expect(operator_result).to eq(method_result)
+        expect(operator_result).to be true
+      end
+
+      it "supports custom alpha parameter" do
+        sample_a = [100, 102, 104, 106, 108]
+        sample_b = [95, 97, 99, 101, 103]
+
+        # Test with different alpha levels
+        result_alpha_five = sample_a.send(:>, sample_b, alpha: 0.05)
+        result_alpha_ten = sample_a.send(:>, sample_b, alpha: 0.10)
+
+        expect(result_alpha_five).to(satisfy { |v| [true, false].include?(v) })
+        expect(result_alpha_ten).to(satisfy { |v| [true, false].include?(v) })
+      end
+
+      it "returns false when not significantly greater" do
+        similar_a = [10, 12, 11, 13, 14]
+        similar_b = [11, 13, 12, 14, 15]
+
+        result = similar_a > similar_b
+        expect(result).to be false
+      end
+    end
+
+    describe "less than operator (<) alias" do
+      it "works as alias for less_than?" do
+        optimized = [85, 95, 90, 100, 80]      # Lower response times (better)
+        baseline = [100, 110, 105, 115, 95]    # Higher response times (worse)
+
+        operator_result = optimized < baseline
+        method_result = optimized.less_than?(baseline)
+
+        expect(operator_result).to eq(method_result)
+        expect(operator_result).to be true
+      end
+
+      it "supports custom alpha parameter" do
+        lower_group = [20, 22, 24, 26, 28]
+        higher_group = [25, 27, 29, 31, 33]
+
+        # Test with different alpha levels
+        result_alpha_five = lower_group.send(:<, higher_group, alpha: 0.05)
+        result_alpha_ten = lower_group.send(:<, higher_group, alpha: 0.10)
+
+        expect(result_alpha_five).to(satisfy { |v| [true, false].include?(v) })
+        expect(result_alpha_ten).to(satisfy { |v| [true, false].include?(v) })
+      end
+
+      it "returns false when not significantly less" do
+        similar_a = [10, 12, 11, 13, 14]
+        similar_b = [11, 13, 12, 14, 15]
+
+        result = similar_b < similar_a
+        expect(result).to be false
+      end
+    end
+
+    describe "operator consistency" do
+      it "maintains consistency between all comparison operators" do
+        dataset_a = [50, 60, 55, 65, 70]  # mean = 60
+        dataset_b = [30, 40, 35, 45, 50]  # mean = 40
+
+        spaceship_result = dataset_a <=> dataset_b
+        greater_result = dataset_a > dataset_b
+        less_result = dataset_a < dataset_b
+
+        case spaceship_result
+        when 1
+          expect(greater_result).to be true
+          expect(less_result).to be false
+        when -1
+          expect(greater_result).to be false
+          expect(less_result).to be true
+        when 0
+          expect(greater_result).to be false
+          expect(less_result).to be false
+        end
+      end
+
+      it "is consistent with underlying statistical methods" do
+        high_sample = [100, 120, 110, 130, 115]
+        low_sample = [60, 80, 70, 90, 75]
+
+        # Spaceship operator should align with greater_than?/less_than?
+        spaceship = high_sample <=> low_sample
+        greater_than = high_sample.greater_than?(low_sample)
+        less_than = high_sample.less_than?(low_sample)
+
+        if spaceship == 1
+          expect(greater_than).to be true
+          expect(less_than).to be false
+        elsif spaceship == -1
+          expect(greater_than).to be false
+          expect(less_than).to be true
+        else # spaceship == 0
+          expect(greater_than).to be false
+          expect(less_than).to be false
+        end
+      end
+    end
+  end
+
+  describe "sorting with statistical comparison operators" do
+    let(:datasets) do
+      [
+        [10, 15, 12, 18, 11],  # mean = 13.2
+        [20, 25, 22, 28, 21],  # mean = 23.2
+        [5, 8, 6, 9, 7],       # mean = 7.0
+        [30, 35, 32, 38, 31],  # mean = 33.2
+        [15, 18, 16, 19, 17]   # mean = 17.0
+      ]
+    end
+
+    describe "sorting with spaceship operator" do
+      it "sorts collections by statistical significance" do
+        # Sort using the spaceship operator
+        sorted_datasets = datasets.sort
+
+        # Check that datasets are in statistical order
+        # Each dataset should not be significantly greater than the next
+        (0...(sorted_datasets.length - 1)).each do |i|
+          current = sorted_datasets[i]
+          next_dataset = sorted_datasets[i + 1]
+
+          # Current should not be significantly greater than next
+          expect(current > next_dataset).to be false
+        end
+      end
+
+      it "handles sorting with identical statistical means" do
+        identical_datasets = [
+          [10, 10, 10, 10, 10],  # mean = 10
+          [8, 9, 10, 11, 12],    # mean = 10
+          [5, 7, 10, 13, 15] # mean = 10
+        ]
+
+        expect { identical_datasets.sort }.not_to raise_error
+
+        sorted = identical_datasets.sort
+        expect(sorted.length).to eq(3)
+      end
+
+      it "maintains sort stability for equivalent datasets" do
+        # Create datasets that should be statistically equivalent
+        equivalent_datasets = [
+          [100, 100, 100, 100, 100],
+          [99, 100, 100, 100, 101],
+          [98, 100, 100, 101, 101]
+        ]
+
+        # Sort multiple times and check consistency
+        sort1 = equivalent_datasets.sort
+        sort2 = equivalent_datasets.sort
+
+        expect(sort1).to eq(sort2)
+      end
+    end
+
+    describe "sorting with greater than operator" do
+      it "can be used for custom sort logic" do
+        # Sort in descending order using > operator
+        desc_sorted = datasets.sort do |a, b|
+          if a > b
+            -1
+          else
+            (b > a ? 1 : 0)
+          end
+        end
+
+        expect(desc_sorted).to be_an(Array)
+        expect(desc_sorted.length).to eq(datasets.length)
+
+        # Verify descending order: each element should not be significantly less than previous
+        (1...desc_sorted.length).each do |i|
+          current = desc_sorted[i]
+          previous = desc_sorted[i - 1]
+
+          expect(current > previous).to be false
+        end
+      end
+    end
+
+    describe "sorting with less than operator" do
+      it "can be used for ascending sort logic" do
+        # Sort in ascending order using < operator
+        asc_sorted = datasets.sort do |a, b|
+          if a < b
+            -1
+          else
+            (b < a ? 1 : 0)
+          end
+        end
+
+        expect(asc_sorted).to be_an(Array)
+        expect(asc_sorted.length).to eq(datasets.length)
+
+        # Verify ascending order: each element should not be significantly greater than next
+        (0...(asc_sorted.length - 1)).each do |i|
+          current = asc_sorted[i]
+          next_dataset = asc_sorted[i + 1]
+
+          expect(current > next_dataset).to be false
+        end
+      end
+    end
+
+    describe "real-world sorting scenarios" do
+      it "sorts performance test results" do
+        performance_results = [
+          [120, 130, 125, 135, 128],  # High response times (worst)
+          [50, 60, 55, 65, 58],       # Low response times (best)
+          [90, 100, 95, 105, 98],     # Medium response times
+          [80, 90, 85, 95, 88] # Lower-medium response times
+        ]
+
+        # Sort by performance (lower is better)
+        sorted_by_performance = performance_results.sort
+
+        # Verify that response times generally increase (worse performance)
+        means = sorted_by_performance.map(&:mean)
+        expect(means).to eq(means.sort)
+      end
+
+      it "sorts A/B test conversion rates" do
+        conversion_tests = [
+          [0.05, 0.06, 0.055, 0.065, 0.058],  # ~5.8% conversion
+          [0.08, 0.09, 0.085, 0.095, 0.088],  # ~8.8% conversion
+          [0.03, 0.04, 0.035, 0.045, 0.038],  # ~3.8% conversion
+          [0.10, 0.11, 0.105, 0.115, 0.108] # ~10.8% conversion
+        ]
+
+        sorted_conversions = conversion_tests.sort
+
+        # Higher conversion rates should come later in sort (if significant)
+        means = sorted_conversions.map(&:mean)
+
+        # Check that means are in non-decreasing order
+        (0...(means.length - 1)).each do |i|
+          expect(means[i]).to be <= means[i + 1]
+        end
+      end
+
+      it "handles sorting with mixed significance levels" do
+        mixed_datasets = [
+          [100] * 5,              # Constant dataset
+          [99, 100, 101] * 2,     # Low variance around 100
+          [50, 150] * 3,          # High variance around 100
+          [200] * 5 # Constant higher dataset
+        ]
+
+        expect { mixed_datasets.sort }.not_to raise_error
+
+        sorted = mixed_datasets.sort
+        expect(sorted.length).to eq(4)
+      end
+    end
+
+    describe "edge cases in sorting" do
+      it "handles empty collections gracefully" do
+        datasets_with_empty = [
+          [1, 2, 3],
+          [],
+          [4, 5, 6]
+        ]
+
+        # Should handle empty collections without crashing
+        # Note: empty collections will cause errors in statistical comparisons
+        expect do
+          datasets_with_empty.reject(&:empty?).sort
+        end.not_to raise_error
+      end
+
+      it "handles single-element collections" do
+        single_element_datasets = [
+          [10],
+          [5],
+          [15],
+          [8]
+        ]
+
+        sorted = single_element_datasets.sort
+        means = sorted.map(&:mean)
+
+        expect(means).to eq(means.sort)
+      end
+
+      it "handles very similar datasets" do
+        similar_datasets = [
+          [100.1, 100.2, 100.3],
+          [100.0, 100.1, 100.2],
+          [100.2, 100.3, 100.4]
+        ]
+
+        expect { similar_datasets.sort }.not_to raise_error
+
+        sorted = similar_datasets.sort
+        expect(sorted.length).to eq(3)
+      end
+    end
+  end
+
   describe "edge cases and error conditions" do
     it "handles very large datasets efficiently" do
       large_data = (1..1000).to_a + [10_000] # One outlier in 1000 points

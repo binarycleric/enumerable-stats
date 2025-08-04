@@ -250,6 +250,64 @@ puts baseline_times.>(optimized_times, alpha: 0.01)  # More stringent
 puts optimized_times.<(baseline_times, alpha: 0.10)  # More lenient
 ```
 
+##### `#<=>(other, alpha: 0.05)` - The Spaceship Operator
+
+The spaceship operator provides three-way statistical comparison, returning:
+- `1` if this collection's mean is significantly greater than the other
+- `-1` if this collection's mean is significantly less than the other
+- `0` if there's no significant statistical difference
+
+This is particularly useful for sorting collections by statistical significance or implementing custom comparison logic.
+
+```ruby
+# Three-way statistical comparison
+high_performance = [200, 210, 205, 215, 220]    # mean = 210
+medium_performance = [150, 160, 155, 165, 170]  # mean = 160
+low_performance = [50, 60, 55, 65, 70]          # mean = 60
+
+puts high_performance <=> medium_performance     # => 1 (significantly greater)
+puts medium_performance <=> high_performance     # => -1 (significantly less)
+puts high_performance <=> high_performance       # => 0 (no significant difference)
+
+# Sorting datasets by statistical significance
+datasets = [
+  [10, 15, 12, 18, 11],    # mean = 13.2
+  [30, 35, 32, 38, 31],    # mean = 33.2
+  [5, 8, 6, 9, 7],         # mean = 7.0
+  [20, 25, 22, 28, 21]     # mean = 23.2
+]
+
+# Sort datasets from lowest to highest statistical significance
+sorted_datasets = datasets.sort { |a, b| a <=> b }
+puts sorted_datasets.map(&:mean)  # => [7.0, 13.2, 23.2, 33.2] (ascending by mean)
+
+# A/B testing - sort variants by conversion performance
+control = [0.12, 0.11, 0.13, 0.12, 0.10]        # 11.6% conversion
+variant_a = [0.14, 0.13, 0.15, 0.14, 0.12]      # 13.6% conversion
+variant_b = [0.16, 0.15, 0.17, 0.16, 0.14]      # 15.6% conversion
+
+variants = [control, variant_a, variant_b]
+best_to_worst = variants.sort { |a, b| b <=> a }  # Descending order
+
+puts "Performance ranking:"
+best_to_worst.each_with_index do |variant, index|
+  puts "#{index + 1}. Mean conversion: #{variant.mean.round(3)}"
+end
+
+# Custom alpha levels (default is 0.05)
+borderline_a = [100, 102, 104, 106, 108]  # mean = 104
+borderline_b = [95, 97, 99, 101, 103]     # mean = 99
+
+# Standard significance test (95% confidence)
+result_standard = borderline_a <=> borderline_b
+puts "Standard test (α=0.05): #{result_standard}"
+
+# More lenient test (90% confidence)
+# Note: Use method call syntax for custom parameters
+result_lenient = borderline_a.public_send(:<=>, borderline_b, alpha: 0.10)
+puts "Lenient test (α=0.10): #{result_lenient}"
+```
+
 ### Comparison Methods
 
 #### `#percentage_difference(other)`
@@ -434,20 +492,47 @@ puts "  Sample size: #{clean_temps.size}/#{temperatures.size}"
 ### A/B Test Analysis
 
 ```ruby
-# Conversion rates for two variants
-variant_a = [0.12, 0.15, 0.11, 0.14, 0.13, 0.16, 0.12, 0.15]
-variant_b = [0.18, 0.19, 0.17, 0.20, 0.18, 0.21, 0.19, 0.18]
+# Conversion rates for multiple variants
+control = [0.12, 0.15, 0.11, 0.14, 0.13, 0.16, 0.12, 0.15]    # 13.5% avg conversion
+variant_a = [0.18, 0.19, 0.17, 0.20, 0.18, 0.21, 0.19, 0.18]  # 18.75% avg conversion
+variant_b = [0.16, 0.17, 0.15, 0.18, 0.16, 0.19, 0.17, 0.16]  # 16.75% avg conversion
+variant_c = [0.22, 0.24, 0.21, 0.25, 0.23, 0.26, 0.22, 0.24]  # 23.4% avg conversion
 
-puts "Variant A: #{(variant_a.mean * 100).round(1)}% ± #{(variant_a.standard_deviation * 100).round(1)}%"
-puts "Variant B: #{(variant_b.mean * 100).round(1)}% ± #{(variant_b.standard_deviation * 100).round(1)}%"
+variants = [
+  { name: "Control", data: control },
+  { name: "Variant A", data: variant_a },
+  { name: "Variant B", data: variant_b },
+  { name: "Variant C", data: variant_c }
+]
 
-# Calculate performance lift
-lift = variant_b.signed_percentage_difference(variant_a)
-puts "Variant B lift: #{lift.round(1)}%" # => "Variant B lift: 34.8%"
+# Display individual performance
+variants.each do |variant|
+  mean_pct = (variant[:data].mean * 100).round(1)
+  std_pct = (variant[:data].standard_deviation * 100).round(1)
+  puts "#{variant[:name]}: #{mean_pct}% ± #{std_pct}%"
+end
+
+# Sort variants by statistical performance using spaceship operator
+sorted_variants = variants.sort { |a, b| b[:data] <=> a[:data] }  # Descending order
+
+puts "\nPerformance Ranking (statistically significant):"
+sorted_variants.each_with_index do |variant, index|
+  conversion_rate = (variant[:data].mean * 100).round(1)
+  puts "#{index + 1}. #{variant[:name]}: #{conversion_rate}%"
+
+  # Compare to control using statistical significance
+  if variant[:name] != "Control"
+    is_significantly_better = variant[:data] > control
+    puts "   #{is_significantly_better ? '✅ Significantly better' : '❌ Not significantly different'} than control"
+  end
+end
 
 # Check for outliers that might skew results
-puts "A outliers: #{variant_a.outlier_stats[:outliers_removed]}"
-puts "B outliers: #{variant_b.outlier_stats[:outliers_removed]}"
+puts "\nOutlier Analysis:"
+variants.each do |variant|
+  outlier_count = variant[:data].outlier_stats[:outliers_removed]
+  puts "#{variant[:name]} outliers: #{outlier_count}"
+end
 ```
 
 ### Performance Comparison
@@ -616,6 +701,7 @@ end
 | `less_than?(other, alpha: 0.05)` | Test if mean is significantly less | Boolean | One-tailed t-test, customizable alpha level |
 | `>(other, alpha: 0.05)` | Alias for `greater_than?` | Boolean | Shorthand operator for statistical comparison |
 | `<(other, alpha: 0.05)` | Alias for `less_than?` | Boolean | Shorthand operator for statistical comparison |
+| `<=>(other, alpha: 0.05)` | Three-way statistical comparison | Integer (-1, 0, 1) | Returns 1 if greater, -1 if less, 0 if no significant difference |
 | `percentage_difference(other)` | Absolute percentage difference | Float | Always positive, symmetric comparison |
 | `signed_percentage_difference(other)` | Signed percentage difference | Float | Preserves direction, useful for A/B tests |
 | `remove_outliers(multiplier: 1.5)` | Remove outliers using IQR method | Array | Returns new array, original unchanged |

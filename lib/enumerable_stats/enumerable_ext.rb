@@ -193,6 +193,32 @@ module EnumerableStats
       less_than?(other, alpha: alpha)
     end
 
+    # Tests if this collection's mean is significantly different from another collection's mean
+    # using a two-tailed Student's t-test. Returns 1 if the test indicates statistical
+    # significance at the specified alpha level, -1 if the test indicates statistical
+    # significance at the specified alpha level, and 0 if the test indicates no statistical
+    # significance at the specified alpha level.
+    #
+    # @param other [Enumerable] Another collection to compare against
+    # @param alpha [Float] Significance level (default: 0.05 for 95% confidence)
+    # @return [Integer] 1 if this collection's mean is significantly greater, -1 if this collection's mean is
+    #                   significantly less, 0 if this collection's mean is not significantly different
+    # @example
+    #   control = [10, 12, 11, 13, 12]     # mean ≈ 11.6
+    #   treatment = [15, 17, 16, 18, 14]   # mean = 16.0
+    #   control <=> treatment              # => 1 (control is significantly different from treatment)
+    #   treatment <=> control              # => -1 (treatment is significantly different from control)
+    #   control <=> control                # => 0 (control is not significantly different from itself)
+    def <=>(other, alpha: 0.05)
+      if greater_than?(other, alpha: alpha)
+        1
+      elsif less_than?(other, alpha: alpha)
+        -1
+      else
+        0
+      end
+    end
+
     # Calculates the arithmetic mean (average) of the collection
     #
     # @return [Float] The arithmetic mean of all numeric values
