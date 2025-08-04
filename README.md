@@ -641,11 +641,10 @@ Bug reports and pull requests are welcome on GitHub at <https://github.com/binar
 
 ## Releasing
 
-Tag a new version and push it to GitHub. A GitHub Action will build and push the
-gem to RubyGems.
+Tags a new version and pushes it to GitHub.
 
 ```bash
-bundle exec rake release:source_control_push
+bundle exec rake release
 ```
 
 ## License
