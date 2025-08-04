@@ -1,6 +1,7 @@
 plugins:
   - rubocop-performance
   - rubocop-rspec
+  - rubocop-rake
 
 AllCops:
   TargetRubyVersion: 3.1
@@ -8,9 +9,6 @@ AllCops:
   Exclude:
     - "spec/statistical_accuracy_spec.rb"
     - "vendor/**/*"
-
-Style/FrozenStringLiteralComment:
-  Enabled: false
 
 Style/StringLiterals:
   EnforcedStyle: double_quotes
