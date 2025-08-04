@@ -639,6 +639,15 @@ bundle exec rspec  # Run the tests
 
 Bug reports and pull requests are welcome on GitHub at <https://github.com/binarycleric/enumerable-stats>.
 
+## Releasing
+
+Tag a new version and push it to GitHub. A GitHub Action will build and push the
+gem to RubyGems.
+
+```bash
+bundle exec rake release:source_control_push
+```
+
 ## License
 
 The gem is available as open source under the terms of the [MIT License](LICENSE).
