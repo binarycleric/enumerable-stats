@@ -10,6 +10,7 @@ group :development do
 end
 
 group :test do
+  gem "benchmark"
   gem "csv"
   gem "rspec"
   gem "rubocop"
